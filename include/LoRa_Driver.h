@@ -21,7 +21,7 @@
 const unsigned TX_INTERVAL = 60;
 
 // LoRa keys
-static u1_t DEVID[2];
+static u1_t DEVID[1];
 static u1_t APPEUI[8];
 static u1_t DEVEUI[8];
 static u1_t APPKEY[16];

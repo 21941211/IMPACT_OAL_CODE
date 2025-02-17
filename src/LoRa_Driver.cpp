@@ -27,15 +27,16 @@ void LoRaSetup()
     // LMIC init
     os_init();
     // delay(200);
-    // Serial.println("OS Init Complete");
+    Serial.println("OS Init Complete");
     //  Reset the MAC state. Session and pending data transfers will be discarded.
     LMIC_reset();
     // delay(200);
-    // Serial.println("LMIC_reset complete");
+    Serial.println("LMIC_reset complete");
     //  Start job (sending automatically starts OTAA too)
     do_send(&sendjob);
     // delay(200);
-    // Serial.println("do_send complete");
+    Serial.println("do_send complete");
+    Serial.println("******************************************************");
 }
 
 void printHex2(unsigned v)

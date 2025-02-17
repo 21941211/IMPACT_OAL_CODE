@@ -72,7 +72,7 @@ delay(100);
 for (uint8_t i = 0; i < BAT_SAMPLE_SIZE; i++)
 {
     arrBatt[i] = analogRead(BATTERY_ADC_PIN);
-    Serial.println(arrBatt[i]);
+   // Serial.println(arrBatt[i]);
     delay(100);
 }
 
@@ -95,18 +95,15 @@ Serial.print(voltage); // read sensor
 Serial.println(" mV");
 
 
-voltage = correctVoltage(voltage);
+// voltage = correctVoltage(voltage);
 
 if (voltage > 1865.0){
     voltage = 1858.0;
 }
 
-Serial.print("Corrected Voltage: ");
-Serial.println(voltage); 
+Serial.println("Battery measurement done:");
 
-
-
- double scaledVoltage = voltage/444.7529;
+ double scaledVoltage = (voltage*2.24069479)/1000;
   Serial.print("Scaled Voltage: ");
  Serial.print(scaledVoltage); 
 Serial.println(" V");
@@ -118,9 +115,11 @@ batPercentage = linearInterpolation(scaledVoltage);
  Serial.print(batPercentage); 
 Serial.println(" %");
 
-
+Serial.println("******************************************************");
 
 digitalWrite(BATTERY_ENABLE_PIN, LOW);
+
+BATT_DONE = 1;
 
 if (batPercentage<10)
 {

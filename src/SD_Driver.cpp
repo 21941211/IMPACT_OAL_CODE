@@ -4,6 +4,9 @@
 const byte key[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10};
 
 
+// Device ID in HEX
+String deviceIDHex;
+
 uint8_t endOfFirstPayload = 0;
 uint8_t endOfFirstLoRaPayload = 0;
 byte dataRead;
@@ -16,16 +19,18 @@ uint8_t LoRaBuffer_SDI12[13] = {0};
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 #ifdef ENABLE_DENDRO_TEST
-#define FILE_NAME "/GWD" TOSTRING(NODE_NUMBER) "TemperatureTest.csv"
+#define FILE_NAME "/Measurements.csv"
 #else
 #define FILE_NAME "/GWD" TOSTRING(NODE_NUMBER) ".csv"
 #endif
-#define FILE_NAME_SDI12 "/GWD" TOSTRING(NODE_NUMBER) "_SDI12.csv"
+#define FILE_NAME_SDI12 "/SDI_12_Measurements.csv"
+#define SYSPARAMS "/parameters.txt"
 
-const char *fileName = FILE_NAME;
+// const char *fileName = FILE_NAME;
+ const char *fileName = FILE_NAME;
 const char *fileName_SDI12 = FILE_NAME_SDI12;
 
-const char* LoRaFileName = "/parameters.txt";
+char *paramFile = SYSPARAMS;
 // SPIClass spi = SPIClass(VSPI);
 
 
@@ -43,6 +48,14 @@ void parseHexArray(String hexString, u1_t* outputArray, int length) {
   for (int i = 0; i < length; i++) {
     String byteString = hexString.substring(i * 2, i * 2 + 2);
     outputArray[i] = (u1_t) strtol(byteString.c_str(), NULL, 16);
+  }
+}
+
+void ReverseByteOrder(u1_t* array, int length) {
+  for (int i = 0; i < length / 2; i++) {
+    u1_t temp = array[i];
+    array[i] = array[length - i - 1];
+    array[length - i - 1] = temp;
   }
 }
 
@@ -65,30 +78,46 @@ bool readParametersFromFile(const char *path) {
 
 Serial.println("File opened");
 
-  while (file.available()) {
+ while (file.available()) {
     String line = file.readStringUntil('\n');
     line.trim();
-    if (line.startsWith("DEVID="))
-    {
-      /* code */
-    
-     parseHexArray(line.substring(2), DEVID, 2);
-     else if (line.startsWith("APPEUI=")) {
+
+     if (line.startsWith("APPEUI=")) {
       parseHexArray(line.substring(7), APPEUI, 8);
     } else if (line.startsWith("DEVEUI=")) {
       parseHexArray(line.substring(7), DEVEUI, 8);
     } else if (line.startsWith("APPKEY=")) {
       parseHexArray(line.substring(7), APPKEY, 16);
+    } else if (line.startsWith("DEVID=")) {
+      String deviceIDStr = line.substring(6); // Extract value after "DEVID="
+    deviceIDStr.trim(); // Remove any whitespace or newline characters
+    Serial.print("Device ID (DEC): ");
+    Serial.println(deviceIDStr);
+    if (deviceIDStr.length() == 0 || deviceIDStr.toInt() <= 0 || deviceIDStr.toInt() > 255) {
+      Serial.println("Error: Invalid or missing DEVID. Using default ID 1.");
+      deviceIDStr = "1"; // Default value
     }
+    int deviceID = deviceIDStr.toInt();
+    deviceIDHex = String(deviceID, HEX);
+    if (deviceIDHex.length() < 2) {
+      deviceIDHex = "0" + deviceIDHex; // Add leading zero if necessary
     }
+    deviceIDHex.toUpperCase();
+    Serial.print("Device ID (HEX): ");
+    Serial.println(deviceIDHex);
   }
+ }
 
+  
+  
   file.close();
 
   // Verify all parameters are read
 
-
+  Serial.print("DEVID: "); Serial.println(deviceIDHex);
+  ReverseByteOrder(APPEUI, 8);
   Serial.print("APPEUI: "); printHexArray(APPEUI, 8);
+  ReverseByteOrder(DEVEUI, 8);
   Serial.print("DEVEUI: "); printHexArray(DEVEUI, 8);
   Serial.print("APPKEY: "); printHexArray(APPKEY, 16);
 
@@ -402,6 +431,16 @@ void SDSetup()
   while(!SD.begin(SD_CS_PIN, SPI, 80000000))
   {
     Serial.println("Card Mount Failed");
+
+    for (size_t i = 0; i < 2; i++)
+    {
+    digitalWrite( DEBUG_LED_PIN, HIGH);
+    delay(20);
+    digitalWrite(DEBUG_LED_PIN,LOW);
+    delay(20);
+    }
+    delay(1000);
+    
   }
   uint8_t cardType = SD.cardType();
 
@@ -419,12 +458,13 @@ listDir(SD, "/", 0);
 
     // Read parameters from file
 Serial.println("Reading loRa keys from file");
-  if (!readParametersFromFile(LoRaFileName)) {
+  if (!readParametersFromFile(paramFile)) {
     Serial.println("Failed to read parameters from file.");
     while (1);
   }
 
 
+ 
   if (!SD.exists(fileName))
   {
     writeFile(SD, fileName, "Dendrometer,Air Temperature, Air Humidity,Soil temperature,Soil Water Volume cm^3/cm^3,Battery %\n");
@@ -432,6 +472,10 @@ Serial.println("Reading loRa keys from file");
 
   Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));
   Serial.printf("Used space: %lluMB\n", SD.usedBytes() / (1024 * 1024));
+
+
+   Serial.println("SD Setup complete");
+Serial.println("******************************************************");
 }
 
 void writeToSD()
@@ -530,6 +574,8 @@ void SDSetup_SDI12()
 
   Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));
   Serial.printf("Used space: %lluMB\n", SD.usedBytes() / (1024 * 1024));
+
+  Serial.println("******************************************************");
 }
 
 void writeToSD_SDI12()

@@ -13,6 +13,7 @@ uint8_t SDI12_Check();
 void SDI12_Setup();
 void SDI12_TX_RX(String &buffer,String command, int t);
 String SDI12_Measurements_To_String();
+void SDI12_Shutdown();
 
 
 extern double SDI12_SM[6];

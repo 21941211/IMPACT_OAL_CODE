@@ -3,6 +3,7 @@
 #include <DallasTemperature.h>
 #include "pinmapping.h"
 #include "DataProcessing_Driver.h"
+#include "MeasureFlags.h"
 
 void readDS18B20();
 

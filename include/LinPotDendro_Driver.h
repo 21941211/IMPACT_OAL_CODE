@@ -11,6 +11,7 @@
 #include "DataProcessing_Driver.h"
 #include "Adafruit_MCP3421.h"
 #include <Wire.h>
+#include "MeasureFlags.h"
 
 
 extern float delta_x;
@@ -18,6 +19,7 @@ extern float xPos;
 extern float microns;
 
 void Dendro_Measure();
+void dendroSetup();
 int averageDendro();
 void ADS1110_READ(void);
 

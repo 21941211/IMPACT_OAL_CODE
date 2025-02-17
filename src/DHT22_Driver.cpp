@@ -1,7 +1,8 @@
 
 #include "DHT22_Driver.h"
 
-RTC_DATA_ATTR uint8_t MEASURE_COMPLETE = 0;
+
+
 
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 #define DHT_SAMPLE_SIZE 10
@@ -10,6 +11,9 @@ RTC_DATA_ATTR uint8_t MEASURE_COMPLETE = 0;
 
 float tempMedian = 0;
 float humMedian = 0;
+
+int sampleCounterDHT22 = 0;
+long lastMillisDHT22 = 0;
 
 
 float arrTemp[DHT_SAMPLE_SIZE] = {0};
@@ -24,34 +28,51 @@ void DHTSetup() {
 
 void DHT_Measure() {
 
-for (uint8_t i = 0; i < DHT_SAMPLE_SIZE; i++)
-{
-  arrTemp[i] = dht.readTemperature();
-   arrHum[i] = dht.readHumidity();
-   
-   Serial.println(arrTemp[i]);
-     Serial.println(arrHum[i]);
+  long currentMillis = millis();
+  if (currentMillis >= (lastMillisDHT22 + 750)){
+arrTemp[sampleCounterDHT22] = dht.readTemperature();
+arrHum[sampleCounterDHT22] = dht.readHumidity();
 
-   delay(750);
+
+lastMillisDHT22 = millis();
+sampleCounterDHT22++;
+  }
+else {
+  //Serial.println("DHT22 Not Ready!");
+return;
 }
-
-
-
+if (sampleCounterDHT22==DHT_SAMPLE_SIZE)
+{
 bubbleSort(arrTemp, DHT_SAMPLE_SIZE);
 bubbleSort(arrHum, DHT_SAMPLE_SIZE);
 
+Serial.println("DHT22 Done:");
+
 tempMedian = trimmedMean(arrTemp, DHT_SAMPLE_SIZE, DHT_TRIM_COUNT);
 humMedian = trimmedMean(arrHum, DHT_SAMPLE_SIZE, DHT_TRIM_COUNT);
-
-// if(std::isnan(tempMedian) || std::isnan(humMedian)){
-//   tempMedian = 1111;
-//   humMedian = 1111;
-// }
   Serial.print(F("Humidity: "));
   Serial.print(humMedian);
   Serial.print(F("%  Temperature: "));
   Serial.print(tempMedian);
   Serial.println(F(" C "));
-  
+  Serial.println("******************************************************");
+  DHT22_DONE = 1;
+  return;
+}
 
 }
+
+
+
+// for (uint8_t i = 0; i < DHT_SAMPLE_SIZE; i++)
+// {
+//   arrTemp[i] = dht.readTemperature();
+//    arrHum[i] = dht.readHumidity();
+   
+//    Serial.println(arrTemp[i]);
+//      Serial.println(arrHum[i]);
+
+//    delay(750);
+// }
+
+

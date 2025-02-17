@@ -3,6 +3,7 @@
 #include "DataProcessing_Driver.h"
 #include "DeepSleep_Driver.h"
 #include "ADC_Driver.h"
+#include "MeasureFlags.h"
 
 
 void measBat();

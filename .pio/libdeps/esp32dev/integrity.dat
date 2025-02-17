@@ -1,10 +1,11 @@
+adafruit/Adafruit MCP3421@^1.0.0
+mcci-catena/MCCI LoRaWAN LMIC library@^4.1.1
+milesburton/DallasTemperature@^3.11.0
+suculent/AESLib@^2.3.6
+plerup/EspSoftwareSerial@^8.2.0
 adafruit/DHT sensor library@^1.4.6
 timkoers/MCP3421@^1.0.2
-adafruit/Adafruit Unified Sensor@^1.1.14
-milesburton/DallasTemperature@^3.11.0
-envirodiy/SDI-12@^2.1.4
-adafruit/Adafruit MCP3421@^1.0.0
-plerup/EspSoftwareSerial@^8.2.0
-suculent/AESLib@^2.3.6
 paulstoffregen/OneWire@^2.3.8
-mcci-catena/MCCI LoRaWAN LMIC library@^4.1.1
+envirodiy/SDI-12@^2.1.4
+adafruit/Adafruit Unified Sensor@^1.1.14
+lime-labs/Lime Labs HDC2080@^1.1.2

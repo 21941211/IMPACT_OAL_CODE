@@ -2,13 +2,13 @@
 
 //Debugging definitions
  #define ENABLE_PRINT
-#define ENABLE_LORA
+//#define ENABLE_LORA
 #define ENABLE_SD
 #define ENABLE_MEASURE
 #define ENABLE_SDI12
 #define ENABLE_LED_DEBUG
 
-#define ENABLE_DENDRO_TEST
+//#define ENABLE_DENDRO_TEST
 
 //#define ENABLE_LORA_TEST
 

@@ -1,5 +1,7 @@
 #include "SDI-12_Driver.h"
 #include <SDI12.h>
+#include "driver/rtc_io.h"
+#include "DeepSleep_Driver.h"
 
 
 RTC_DATA_ATTR uint8_t SDI12_CONNECTED = 0;
@@ -43,7 +45,7 @@ void SDI12_Setup()
 {
 pinMode(SDI12_EN_PIN, OUTPUT);
 digitalWrite(SDI12_EN_PIN,HIGH);
-delay(1000);
+delay(500);
 
   Serial.println("Opening SDI-12 bus...");
   mySDI12.begin();
@@ -62,14 +64,14 @@ uint8_t SDI12_Check()
     Serial.println("SDI-12 Device not connected");
     Serial.print("Device Address: ");
     Serial.println(stringMeasurements.Address[0]);
-    Serial.println("");
+Serial.println("******************************************************");
     return 0;
   }
   else
   {
     Serial.print("Device Address: ");
     Serial.println(stringMeasurements.Address[0]);
-    Serial.println("");
+   Serial.println("******************************************************");
   }
 
   return 1;
@@ -244,4 +246,38 @@ String SDI12_Measurements_To_String()
   }
 
   return measurements;
+}
+
+void SDI12_Shutdown(){
+
+ // pinMode(SDI12_EN_PIN,OUTPUT);
+//delay(1000);
+//digitalWrite(SDI12_EN_PIN,HIGH);
+//Serial.println("SDI_12_EN_HIGH");
+//delay(2000);
+
+
+rtc_gpio_hold_dis(GPIO_NUM_5);
+pinMode(GPIO_NUM_5,OUTPUT);
+//delay(1000);
+
+
+//digitalWrite(GPIO_NUM_5,HIGH);
+// delay(1000);
+// Serial.println("LL test high");
+// delay(2000);
+
+digitalWrite(GPIO_NUM_5,LOW);
+digitalWrite(SDI12_EN_PIN,LOW);
+//delay(5000);
+rtc_gpio_hold_en(GPIO_NUM_5);  // Lock GPIO 5 state
+
+Serial.println("SDI12 is now OFF");
+
+Serial.println("******************************************************");
+//delay(5000);
+
+// Serial.println("Data pulled low, going to sleep now:");
+
+// goSleep(LIGHT_SLEEP);
 }
