@@ -2,7 +2,7 @@
 
 //Debugging definitions
  #define ENABLE_PRINT
-//#define ENABLE_LORA
+#define ENABLE_LORA
 #define ENABLE_SD
 #define ENABLE_MEASURE
 #define ENABLE_SDI12

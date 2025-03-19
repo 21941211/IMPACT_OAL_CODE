@@ -5,6 +5,16 @@
 HDC2080 sensor(ADDR);
 HDC2080 sensor2(ADDR2);
 
+  float avgT1Before = 0.0f;
+  float avgT2Before = 0.0f;
+  float avgT1During = 0.0f;
+  float avgT2During = 0.0f;
+  float avgT1After = 0.0f;
+  float avgT2After = 0.0f;
+  float HPV = 0.0f;
+
+uint8_t HEATER_STATE = 0;
+
 std::vector<float> arrSapflowT1;
 std::vector<float> arrSapflowT2;
 int size = 10;
@@ -34,9 +44,7 @@ unsigned long millisSinceReferenceTemp = 0;
 
 boolean referenceTempRecorded = false;
 
-//Marshall formula values
-float k = 250/1000; //m^2
-float x  = 6/1000; // 6 mm to m
+
 
 
 float temp1;
@@ -97,7 +105,9 @@ void SF_Measure(){
     Serial.println(F("Done reading reference temperatures. Turning heating element on."));
     digitalWrite(SDI12_EN_PIN, HIGH);
     //digitalWrite(HEAT_PIN_SWITCH, HIGH);
+    HEATER_STATE = 1;
     Serial.println(F("Heater ON"));
+    
     startHP = sampleCounter;
     previousHeaterOnTime = currentMillis;
   }
@@ -114,6 +124,7 @@ void SF_Measure(){
   {
     //digitalWrite(HEAT_PIN_SWITCH, LOW);
     SDI12_Shutdown();
+    HEATER_STATE = 0;
     Serial.println(F("Heater OFF"));
     endHP = sampleCounter;
   }
@@ -132,14 +143,31 @@ Serial.println(size);
 
     for (int i = 0; i < size; i++)
     {
-      Serial.print("T1 [");
+      Serial.print("T1[");
       Serial.print(i);
       Serial.print("]: ");
       Serial.print(arrSapflowT1[i]);
-      delay(1000);
+      Serial.print(" T2[");
+      Serial.print(i);
+      Serial.print("]: ");
+      Serial.println(arrSapflowT2[i]);
+      
     }
+    Serial.print("Heat pulse start index: ");
+    Serial.println(startHP);
+
+    Serial.print("Heat pulse end index: ");
+    Serial.println(endHP);
+
     Serial.println("Sapflow done:");
-    Serial.println("Estimated HPV using Marshall formula: ");
+    Serial.println("Estimated HPV using Marshall formulab (scaled by 100): ");
+    HPV = calculateHPV(arrSapflowT1, arrSapflowT2, startHP, endHP)*100.0;
+    if (isnan(HPV))
+    {
+      HPV=9999.99;
+    }
+    
+    Serial.println(HPV);
      SF_DONE = 1;
      return;
    }
@@ -197,9 +225,7 @@ float calculateHPV(const std::vector<float>& arrSapflowT1, const std::vector<flo
 
     size_t dataSize = arrSapflowT1.size();
 
-    // Calculate average temperature for the "before" heat pulse period (baseline)
-    float avgT1Before = 0.0f;
-    float avgT2Before = 0.0f;
+  
     for (size_t i = 0; i < StartHP; ++i) {
         avgT1Before += arrSapflowT1[i];
         avgT2Before += arrSapflowT2[i];
@@ -207,9 +233,15 @@ float calculateHPV(const std::vector<float>& arrSapflowT1, const std::vector<flo
     avgT1Before /= StartHP;
     avgT2Before /= StartHP;
 
+
+    Serial.println("Avg T1 Before:");
+    Serial.println(avgT1Before);
+    Serial.println("Avg T2 Before:");
+    Serial.println(avgT2Before);
+
     // Calculate average temperature for the "during" heat pulse period
-    float avgT1During = 0.0f;
-    float avgT2During = 0.0f;
+
+    
     for (size_t i = StartHP; i <= endHP; ++i) {
         avgT1During += arrSapflowT1[i];
         avgT2During += arrSapflowT2[i];
@@ -217,9 +249,14 @@ float calculateHPV(const std::vector<float>& arrSapflowT1, const std::vector<flo
     avgT1During /= (endHP - StartHP + 1);
     avgT2During /= (endHP - StartHP + 1);
 
+    Serial.println("Avg T1 During:");
+    Serial.println(avgT1During);
+    Serial.println("Avg T2 During:");
+    Serial.println(avgT2During);
+
     // Calculate average temperature for the "after" heat pulse period
-    float avgT1After = 0.0f;
-    float avgT2After = 0.0f;
+      // Calculate average temperature for the "before" heat pulse period (baseline)
+  
     for (size_t i = endHP + 1; i < dataSize; ++i) {
         avgT1After += arrSapflowT1[i];
         avgT2After += arrSapflowT2[i];
@@ -227,18 +264,42 @@ float calculateHPV(const std::vector<float>& arrSapflowT1, const std::vector<flo
     avgT1After /= (dataSize - endHP - 1);
     avgT2After /= (dataSize - endHP - 1);
 
-    // Calculate temperature differences for each period
-    float deltaT1Before = avgT1During - avgT1Before;
-    float deltaT2Before = avgT2During - avgT2Before;
+Serial.println("Avg T1 After:");
+    Serial.println(avgT1After);
+    Serial.println("Avg T2 After:");
+    Serial.println(avgT2After);
 
-    float deltaT1During = avgT1During - avgT1Before;  // Calculate difference for "during" period
-    float deltaT2During = avgT2During - avgT2Before;  // Calculate difference for "during" period
+    // // Calculate temperature differences for each period
+    // float deltaT1Before = avgT1During - avgT1Before;
+    // float deltaT2Before = avgT2During - avgT2Before;
 
-    float deltaT1After = avgT1After - avgT1During;
-    float deltaT2After = avgT2After - avgT2During;
+    // float deltaT1During = avgT1During - avgT1Before;  // Calculate difference for "during" period
+    // float deltaT2During = avgT2During - avgT2Before;  // Calculate difference for "during" period
 
-    // Calculate HPV. For simplicity, assume a linear relationship (you might need a more accurate formula here)
-    float HPV = (k/x)*(log(deltaT1During/deltaT1After))*3600;
+    // float deltaT1After = avgT1After - avgT1During;
+    // float deltaT2After = avgT2After - avgT2During;
 
-    return HPV;
+
+    float deltaT1AfterBefore = avgT1After - avgT1Before;
+    float deltaT2AfterBefore = avgT2After - avgT2Before;
+
+    Serial.println("Delta T1 After minus Before:");
+    Serial.println(deltaT1AfterBefore);
+    Serial.println("Delta T2 After minus Before:");
+    Serial.println(deltaT2AfterBefore);
+
+
+    //Marshall formula values
+float k = 0.25/1000000.0; //m^2
+float x  = 6.0/1000.0; // 6 mm to m
+
+    float k_over_x = k / x;
+
+    Serial.println("k/x:");
+    Serial.println(k_over_x);
+
+    float Calc_HPV = k_over_x * (log( deltaT2AfterBefore/deltaT1AfterBefore)) * 3600.0;
+
+ 
+    return Calc_HPV;
 }

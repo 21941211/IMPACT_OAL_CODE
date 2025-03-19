@@ -12,6 +12,7 @@
 #include "DataProcessing_Driver.h"
 #include "SDI-12_Driver.h"
 #include "Lora_Driver.h"
+#include "SapFlow_Driver.h"
 
 #define BUFFERSIZE 41
 
@@ -22,6 +23,8 @@ extern std::vector<uint8_t> LoRaBuffer;
 extern std::vector<uint8_t> PayLoadTest;
 extern uint8_t LoRaBuffer_SDI12[13];
 
+
+
 void SDSetup();
 void SDSetup_SDI12();
 void writeToSD();
@@ -30,3 +33,4 @@ void readFile(fs::FS &fs, const char * path,uint8_t NormalOrSDI12);
 void readLastEntry();
 void enableSD_ON();
 void enableSD_OFF();
+void decodePayload ();

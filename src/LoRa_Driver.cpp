@@ -2,11 +2,11 @@
 
 using namespace std;
 
-uint8_t mydata[] = "000000000000000000";
+uint8_t mydata[] = "000025500628002500992060002736027270275002733027930276605940";
 
 float num = 12.45;
 
-uint8_t newNum[] = "123.";
+uint8_t newNum[] = "00000000255000628000250000099200600002736002727002750002733002793002766005940";
 
 static osjob_t sendjob;
 
@@ -16,12 +16,24 @@ uint8_t NoJoin = 0;
 
 
 
+#ifdef ENABLE_SD
+ u1_t APPEUI[8];
+ u1_t DEVEUI[8];
+ u1_t APPKEY[16];
+ #endif
+
 void LoRaSetup()
 {
 
-#ifdef ENABLE_SD
+ #ifdef ENABLE_SD
     readLastEntry();
-#endif
+ #else
+    Serial.println("SD Card Disabled, using default LoRa parameters");
+
+ #endif
+
+Serial.println("Setting up LoRa");
+
     setSPI(LORA_SPI);
 
     // LMIC init
@@ -123,9 +135,9 @@ void onEvent(ev_t ev)
             Serial.println(F("Received ack"));
         if (LMIC.dataLen)
         {
-            Serial.print(F("Received "));
+            Serial.print("Received ");
             Serial.print(LMIC.dataLen);
-            Serial.println(F(" bytes of payload"));
+            Serial.println(" bytes of payload");
         }
         // Schedule next transmission
         // os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
@@ -205,11 +217,14 @@ void do_send(osjob_t *j)
     else
     {
         // Prepare upstream data transmission at the next possible time.
-        #ifdef ENABLE_LORA_TEST
-         LMIC_setTxData2(1, mydata,  sizeof(mydata), 0); //dataBuffer
-         #else
+        // #ifdef ENABLE_LORA_TEST
+        //  LMIC_setTxData2(1, mydata,  sizeof(mydata), 0); //dataBuffer
+
+        //  #elseif defined(ENABLE_SD)
         LMIC_setTxData2(1, PayLoadTest.data(), PayLoadTest.size(), 0); // dataBuffer
-        #endif
+        // #elseif
+        // // LMIC_setTxData2(1, mydata, sizeof(mydata), 0); // dataBuffer
+        // #endif
         Serial.println(F("Packet queued"));
     }
     // Next TX is scheduled after TX_COMPLETE event.

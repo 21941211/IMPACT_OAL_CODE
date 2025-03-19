@@ -21,10 +21,24 @@
 const unsigned TX_INTERVAL = 60;
 
 // LoRa keys
+
 static u1_t DEVID[1];
-static u1_t APPEUI[8];
-static u1_t DEVEUI[8];
-static u1_t APPKEY[16];
+#ifdef ENABLE_SD
+extern u1_t APPEUI[8];
+extern u1_t DEVEUI[8];
+extern u1_t APPKEY[16];
+
+extern u1_t APPEUITEST[8];
+extern u1_t DEVEUITEST[8];
+extern u1_t APPKEYTEST[16];
+
+#else
+ static u1_t APPEUI[8] =  {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+ static u1_t DEVEUI[8] = {0x66, 0xE7, 0x06, 0xD0, 0x7E, 0xD5, 0xB3, 0x70};
+ static u1_t APPKEY[16] = {0xF1, 0x8C, 0xB2, 0x63, 0x5F, 0xAF, 0x2A, 0x9C, 0x8B, 0x4F, 0x5F, 0x23, 0xB4, 0x29, 0xB1, 0x4B};
+
+#endif
+
 
 
 extern RTC_DATA_ATTR unsigned int LoRaTX_Complete;

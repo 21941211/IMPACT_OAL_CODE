@@ -3,7 +3,7 @@
 
 RTC_DATA_ATTR float SLEEP_TIMEOUT = 0;
 
-
+RTC_DATA_ATTR int bootCount = 0;
 
 void print_wakeup_reason(){
   esp_sleep_wakeup_cause_t wakeup_reason;

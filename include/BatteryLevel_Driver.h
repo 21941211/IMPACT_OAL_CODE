@@ -11,3 +11,4 @@ int avgBat();
 uint8_t linearInterpolation(float target);
 extern uint8_t batPercentage;
 extern RTC_DATA_ATTR uint8_t BATTERY_LOW;
+float VoltageCorrection(float voltage);

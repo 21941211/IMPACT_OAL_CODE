@@ -40,11 +40,14 @@ float DS18B20median = 0;
 // }
 
 void readDS18B20() {
-
+ sensors.requestTemperatures();
   long currentMillis = millis();
-  if (currentMillis >= (lastMillisST + 750)){
+  if (currentMillis >= (lastMillisST + 1000)){
 arrDS18B20[sampleCounterST] = sensors.getTempCByIndex(0);
-
+Serial.print("DS18B20 ");
+Serial.print(sampleCounterST);
+Serial.print(": ");
+Serial.println(arrDS18B20[sampleCounterST]);
 lastMillisST = millis();
 sampleCounterST++;
   }

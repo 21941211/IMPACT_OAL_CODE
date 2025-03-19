@@ -1,7 +1,10 @@
 #include "SD_Driver.h"
 #include <vector>
+#include <algorithm>
 
 const byte key[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10};
+
+
 
 
 // Device ID in HEX
@@ -21,53 +24,40 @@ uint8_t LoRaBuffer_SDI12[13] = {0};
 #ifdef ENABLE_DENDRO_TEST
 #define FILE_NAME "/Measurements.csv"
 #else
-#define FILE_NAME "/GWD" TOSTRING(NODE_NUMBER) ".csv"
+#define FILE_NAME "/Measurements.csv"
 #endif
 #define FILE_NAME_SDI12 "/SDI_12_Measurements.csv"
 #define SYSPARAMS "/parameters.txt"
 
-// const char *fileName = FILE_NAME;
+
  const char *fileName = FILE_NAME;
 const char *fileName_SDI12 = FILE_NAME_SDI12;
 
 char *paramFile = SYSPARAMS;
-// SPIClass spi = SPIClass(VSPI);
 
+void reverseByteOrder(u1_t arr[8]) {
+    std::reverse(arr, arr + 8);
+}
 
-void parseHexArray(String hexString, u1_t* outputArray, int length) {
-  // Debugging: Print the input string
+void parseHexArray(String hexString, uint8_t *outputArray, int length) {
   Serial.print("Parsing hex string: ");
   Serial.println(hexString);
 
-  hexString.trim(); // Ensure no extra spaces
+  hexString.trim(); // Remove extra spaces
+
   if (hexString.length() != length * 2) {
     Serial.println("Error: Hex string length mismatch!");
     return;
   }
 
   for (int i = 0; i < length; i++) {
-    String byteString = hexString.substring(i * 2, i * 2 + 2);
-    outputArray[i] = (u1_t) strtol(byteString.c_str(), NULL, 16);
+    outputArray[i] = strtol(hexString.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
   }
+
 }
 
-void ReverseByteOrder(u1_t* array, int length) {
-  for (int i = 0; i < length / 2; i++) {
-    u1_t temp = array[i];
-    array[i] = array[length - i - 1];
-    array[length - i - 1] = temp;
-  }
-}
 
-void printHexArray(u1_t* array, int length) {
-  for (int i = 0; i < length; i++) {
-    if (i > 0) Serial.print(", ");
-    Serial.print("0x");
-    if (array[i] < 0x10) Serial.print("0");
-    Serial.print(array[i], HEX);
-  }
-  Serial.println();
-}
+
 
 bool readParametersFromFile(const char *path) {
   File file = SD.open(path);
@@ -83,6 +73,7 @@ Serial.println("File opened");
     line.trim();
 
      if (line.startsWith("APPEUI=")) {
+      
       parseHexArray(line.substring(7), APPEUI, 8);
     } else if (line.startsWith("DEVEUI=")) {
       parseHexArray(line.substring(7), DEVEUI, 8);
@@ -112,14 +103,9 @@ Serial.println("File opened");
   
   file.close();
 
-  // Verify all parameters are read
 
-  Serial.print("DEVID: "); Serial.println(deviceIDHex);
-  ReverseByteOrder(APPEUI, 8);
-  Serial.print("APPEUI: "); printHexArray(APPEUI, 8);
-  ReverseByteOrder(DEVEUI, 8);
-  Serial.print("DEVEUI: "); printHexArray(DEVEUI, 8);
-  Serial.print("APPKEY: "); printHexArray(APPKEY, 16);
+
+reverseByteOrder(DEVEUI);
 
   return true;
 }
@@ -303,6 +289,7 @@ int payLoadIndex = endOfFirstPayload;
   {
     Serial.print(PayLoadTest[i]);
   }
+  Serial.println("");
 }
 
 
@@ -428,7 +415,8 @@ void SDSetup()
   enableSD_ON();
   setSPI(SD_SPI);
 
-  while(!SD.begin(SD_CS_PIN, SPI, 80000000))
+int LEDFlash = 0;
+  while(!SD.begin(SD_CS_PIN, SPI, 80000000)&&LEDFlash<5)
   {
     Serial.println("Card Mount Failed");
 
@@ -439,9 +427,18 @@ void SDSetup()
     digitalWrite(DEBUG_LED_PIN,LOW);
     delay(20);
     }
+    LEDFlash++;
     delay(1000);
     
   }
+if (LEDFlash ==5)
+{
+  Serial.println("SD connect timeout reached");
+  Serial.println("Going to sleep for 10 seconds to reset");
+  goSleep(LIGHT_SLEEP);
+}
+
+
   uint8_t cardType = SD.cardType();
 
   if (cardType == CARD_NONE)
@@ -450,7 +447,8 @@ void SDSetup()
     return;
   }
 
-
+Serial.println("SD Card mounted successfully");
+Serial.println("The following files are available:");
 listDir(SD, "/", 0);
 
   uint64_t cardSize = SD.cardSize() / (1024 * 1024);
@@ -467,7 +465,7 @@ Serial.println("Reading loRa keys from file");
  
   if (!SD.exists(fileName))
   {
-    writeFile(SD, fileName, "Dendrometer,Air Temperature, Air Humidity,Soil temperature,Soil Water Volume cm^3/cm^3,Battery %\n");
+    writeFile(SD, fileName, "Dendrometer,Air Temperature, Air Humidity,Soil temperature,Soil Water Volume cm^3/cm^3,Battery,SF T1 Before,SF T2 Before,SF T1 During,SF T2 During,SF T1 After,SF T2 After,HPV,Boot count\n");
   }
 
   Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));
@@ -489,6 +487,16 @@ void writeToSD()
   char dendro_buffer[buffSize];
   char batt_buffer[buffSize];
   char DS18B20_buffer[buffSize];
+  char SF_avgT1Before[buffSize];
+  char SF_avgT2Before[buffSize];
+  char SF_avgT1During[buffSize];
+  char SF_avgT2During[buffSize];
+  char SF_avgT1After[buffSize];
+  char SF_avgT2After[buffSize];
+  char SF_HPV[buffSize];
+  char bootCountBuff[buffSize];
+
+
 
   dataToBuff(temp_buffer, tempMedian, buffSize);
   dataToBuff(hum_buffer, humMedian, buffSize);
@@ -496,6 +504,15 @@ void writeToSD()
   dataToBuff(dendro_buffer, microns, buffSize);
   dataToBuff(DS18B20_buffer, DS18B20median, buffSize);
   dataToBuff(batt_buffer, batPercentage, buffSize);
+  dataToBuff(SF_avgT1Before, avgT1Before, buffSize);
+  dataToBuff(SF_avgT2Before, avgT2Before, buffSize);
+  dataToBuff(SF_avgT1During, avgT1During, buffSize);
+  dataToBuff(SF_avgT2During, avgT2During, buffSize);
+  dataToBuff(SF_avgT1After, avgT1After, buffSize);
+  dataToBuff(SF_avgT2After, avgT2After, buffSize);
+  dataToBuff(SF_HPV, HPV, buffSize);
+  dataToBuff(bootCountBuff, float(bootCount)/100.0, buffSize);
+
 
   SDSetup();
 
@@ -512,6 +529,22 @@ void writeToSD()
   appendFile(SD, fileName, ",");
   appendFile(SD, fileName, batt_buffer);
   appendFile(SD, fileName, ",");
+  appendFile(SD, fileName, SF_avgT1Before);
+  appendFile(SD, fileName, ",");
+  appendFile(SD, fileName, SF_avgT2Before);
+  appendFile(SD, fileName, ",");
+  appendFile(SD, fileName, SF_avgT1During);
+  appendFile(SD, fileName, ",");
+  appendFile(SD, fileName, SF_avgT2During);
+  appendFile(SD, fileName, ",");
+  appendFile(SD, fileName, SF_avgT1After);
+  appendFile(SD, fileName, ",");
+  appendFile(SD, fileName, SF_avgT2After);
+  appendFile(SD, fileName, ",");
+  appendFile(SD, fileName, SF_HPV);
+  appendFile(SD, fileName, ",");
+  appendFile(SD, fileName, bootCountBuff);
+   appendFile(SD, fileName, ",");
   appendFile(SD, fileName, ":");
 
   enableSD_OFF();
@@ -519,6 +552,7 @@ void writeToSD()
 
 void readLastEntry()
 {
+  #ifdef ENABLE_SD
   SDSetup();
 
   readFile(SD, fileName, 0);
@@ -528,12 +562,15 @@ void readLastEntry()
   {
     readFile(SD, fileName_SDI12, 1);
   }
-
+#endif
   enableSD_OFF();
 }
 
 void enableSD_ON()
 {
+
+  digitalWrite(SD_ENABLE_PIN, LOW);
+delay(500);
   digitalWrite(SD_ENABLE_PIN, HIGH);
   digitalWrite(LORA_CS_PIN, HIGH); // SET LoRa CS pin HIGH
   delay(1000);
@@ -634,4 +671,70 @@ void parsePayload(const String &payload, uint8_t *byteArray)
     // Increment the byteIndex
     byteIndex++;
   }
+}
+
+void decodePayload (){
+
+float dendro ;
+float temp;
+float hum;
+float SM;
+float DS18B20;
+float batt;
+float SF_avgT1Before;
+float SF_avgT2Before;
+float SF_avgT1During;
+float SF_avgT2During;
+float SF_avgT1After;
+float SF_avgT2After;
+float SF_HPV;
+int bootCountNum;
+
+
+//"Dendrometer,Air Temperature, Air Humidity,Soil temperature,Soil Water Volume cm^3/cm^3,Battery,SF T1 Before,SF T2 Before,SF T1 During,SF T2 During,SF T1 After,SF T2 After,HPV\n");
+  
+
+dendro = PayLoadTest[0]*100.0 + PayLoadTest[1] + PayLoadTest[2]*0.01;
+temp = PayLoadTest[3]*100.0 + PayLoadTest[4] + PayLoadTest[5]*0.01;
+hum = PayLoadTest[6]*100.0 + PayLoadTest[7] + PayLoadTest[8]*0.01;
+DS18B20 = PayLoadTest[9]*100.0 + PayLoadTest[10] + PayLoadTest[11]*0.01;
+SM = PayLoadTest[12]*100.0 + PayLoadTest[13] + PayLoadTest[14]*0.01;
+batt = PayLoadTest[15]*100.0 + PayLoadTest[16] + PayLoadTest[17]*0.01;
+SF_avgT1Before = PayLoadTest[18]*100.0 + PayLoadTest[19] + PayLoadTest[20]*0.01;
+SF_avgT2Before = PayLoadTest[21]*100.0 + PayLoadTest[22] + PayLoadTest[23]*0.01;
+SF_avgT1During = PayLoadTest[24]*100.0 + PayLoadTest[25] + PayLoadTest[26]*0.01;
+SF_avgT2During = PayLoadTest[27]*100.0 + PayLoadTest[28] + PayLoadTest[29]*0.01;
+SF_avgT1After = PayLoadTest[30]*100.0 + PayLoadTest[31] + PayLoadTest[32]*0.01;
+SF_avgT2After = PayLoadTest[33]*100.0 + PayLoadTest[34] + PayLoadTest[35]*0.01;
+SF_HPV = PayLoadTest[36]*100.0 + PayLoadTest[37] + PayLoadTest[38]*0.01;
+bootCountNum = (PayLoadTest[39]*100.0 + PayLoadTest[40] + PayLoadTest[41]*0.01)*100;
+
+Serial.print("Dendrometer: ");
+Serial.println(dendro);
+Serial.print("Temperature: ");
+Serial.println(temp);
+Serial.print("Humidity: ");
+Serial.println(hum);
+Serial.print("Soil Moisture: ");
+Serial.println(SM);
+Serial.print("DS18B20: ");
+Serial.println(DS18B20);
+Serial.print("Battery: ");
+Serial.println(batt);
+Serial.print("SF T1 Before: ");
+Serial.println(SF_avgT1Before);
+Serial.print("SF T2 Before: ");
+Serial.println(SF_avgT2Before);
+Serial.print("SF T1 During: ");
+Serial.println(SF_avgT1During);
+Serial.print("SF T2 During: ");
+Serial.println(SF_avgT2During);
+Serial.print("SF T1 After: ");
+Serial.println(SF_avgT1After);
+Serial.print("SF T2 After: ");
+Serial.println(SF_avgT2After);
+Serial.print("HPV: ");
+Serial.println(SF_HPV);
+Serial.print("Boot count: ");
+Serial.println(bootCountNum);
 }

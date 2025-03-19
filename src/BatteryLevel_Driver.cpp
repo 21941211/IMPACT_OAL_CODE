@@ -4,6 +4,8 @@
 #define BAT_SAMPLE_SIZE 20
 #define BAT_TRIM_SIZE 5
 
+float vCalibration = 3.38;
+
 RTC_DATA_ATTR uint8_t BATTERY_LOW = 0;
 
    const uint8_t dataSize = 100; // Number of data points
@@ -104,10 +106,15 @@ if (voltage > 1865.0){
 Serial.println("Battery measurement done:");
 
  double scaledVoltage = (voltage*2.24069479)/1000;
-  Serial.print("Scaled Voltage: ");
+  Serial.print("Scaled Voltage before correction: ");
  Serial.print(scaledVoltage); 
 Serial.println(" V");
 
+scaledVoltage = VoltageCorrection(scaledVoltage);
+
+Serial.print("Scaled Voltage after correction: ");
+ Serial.print(scaledVoltage);
+Serial.println(" V");
   
 batPercentage = linearInterpolation(scaledVoltage);
 
@@ -154,3 +161,9 @@ avg = sum/10;
 return avg;
 }
 
+
+float VoltageCorrection(float voltage) {
+    float scalingFactor = 3.83/3.76;
+    return voltage * scalingFactor;
+
+}

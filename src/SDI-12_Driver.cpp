@@ -45,7 +45,10 @@ void SDI12_Setup()
 {
 pinMode(SDI12_EN_PIN, OUTPUT);
 digitalWrite(SDI12_EN_PIN,HIGH);
+Serial.println("SDI12 is now ON");
 delay(500);
+
+
 
   Serial.println("Opening SDI-12 bus...");
   mySDI12.begin();
@@ -62,8 +65,6 @@ uint8_t SDI12_Check()
   if (stringMeasurements.Address[0] == 0)
   {
     Serial.println("SDI-12 Device not connected");
-    Serial.print("Device Address: ");
-    Serial.println(stringMeasurements.Address[0]);
 Serial.println("******************************************************");
     return 0;
   }
@@ -250,26 +251,11 @@ String SDI12_Measurements_To_String()
 
 void SDI12_Shutdown(){
 
- // pinMode(SDI12_EN_PIN,OUTPUT);
-//delay(1000);
-//digitalWrite(SDI12_EN_PIN,HIGH);
-//Serial.println("SDI_12_EN_HIGH");
-//delay(2000);
-
 
 rtc_gpio_hold_dis(GPIO_NUM_5);
 pinMode(GPIO_NUM_5,OUTPUT);
-//delay(1000);
-
-
-//digitalWrite(GPIO_NUM_5,HIGH);
-// delay(1000);
-// Serial.println("LL test high");
-// delay(2000);
-
 digitalWrite(GPIO_NUM_5,LOW);
 digitalWrite(SDI12_EN_PIN,LOW);
-//delay(5000);
 rtc_gpio_hold_en(GPIO_NUM_5);  // Lock GPIO 5 state
 
 Serial.println("SDI12 is now OFF");

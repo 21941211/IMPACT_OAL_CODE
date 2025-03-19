@@ -50,7 +50,7 @@ float trimmedMean(float arr[], int size, int trimCount)
 void dataToBuff(char buff[], float data, uint8_t buffSize)
 {
     int integerPart = data;
-
+    
     snprintf(buff, buffSize, "%07.2f", data);
     Serial.print("");
     for (size_t i = 0; i < buffSize - 1; i++)

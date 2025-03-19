@@ -51,10 +51,12 @@ void dendroSetup(){
   if (!mcp.begin(0x68, &Wire))
   {
     Serial.println("Failed to find MCP3421 chip");
-    while (1)
-    {
-      delay(10); // Avoid a busy-wait loop
-    }
+    DENDRO_DONE = 1;
+    return;
+    // while (1)
+    // {
+    //   delay(10); // Avoid a busy-wait loop
+    // }
   }
  Serial.println("MCP3421 Found!");
 
@@ -219,7 +221,13 @@ if (sampleCounterDendro==DENDRO_SAMPLE_SIZE)
     //Serial.println("Raw, trimmed mean of ADC values: ");
    //Serial.println(DendroRawTrimmed);
 
- microns = float(DendroRawTrimmed) * 10000.0 / 131071.0;
+ microns = 10000.0 - float(DendroRawTrimmed) * 10000.0 / 131071.0;
+
+if (microns==10000.0)
+{
+  microns = 9999.99;
+}
+
 
 Serial.println("Dendrometer Done:");
 Serial.print("Dendrometer Measurement: ");
