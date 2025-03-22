@@ -81,41 +81,48 @@ for (uint8_t i = 0; i < BAT_SAMPLE_SIZE; i++)
 bubbleSort(arrBatt, BAT_SAMPLE_SIZE);
 batMedian=trimmedMean(arrBatt,BAT_SAMPLE_SIZE, BAT_TRIM_SIZE);
 
-  Serial.print("ADC Value ");
-  Serial.println(batMedian);
+ // Serial.print("ADC Value ");
+  //Serial.println(batMedian);
 
 
 
 voltage = (double(batMedian)*2600.0)/8191.0;
 
 // Piecewise linear calibration
-#ifdef NODE_4
 
-#endif
-Serial.print("Voltage: ");
-Serial.print(voltage); // read sensor
-Serial.println(" mV");
+//Serial.print("Voltage: ");
+//Serial.print(voltage); // read sensor
+//Serial.println(" mV");
 
 
 // voltage = correctVoltage(voltage);
 
-if (voltage > 1865.0){
-    voltage = 1858.0;
-}
+// if (voltage > 1865.0){
+//     voltage = 1858.0;
+// }
 
 Serial.println("Battery measurement done:");
 
  double scaledVoltage = (voltage*2.24069479)/1000;
+
   Serial.print("Scaled Voltage before correction: ");
  Serial.print(scaledVoltage); 
 Serial.println(" V");
 
 scaledVoltage = VoltageCorrection(scaledVoltage);
 
+
+if (scaledVoltage > 4.2){
+    scaledVoltage = 4.2;
+}
+
 Serial.print("Scaled Voltage after correction: ");
  Serial.print(scaledVoltage);
 Serial.println(" V");
   
+
+
+
 batPercentage = linearInterpolation(scaledVoltage);
 
   Serial.print("Remaining battery: ");

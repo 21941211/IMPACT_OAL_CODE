@@ -6,7 +6,7 @@
 #include "MeasureFlags.h"
 #include "SDI-12_Driver.h"
 #include <cmath>
-
+#include "debug.h"
 
 #define ADDR 0x40
 #define ADDR2 0x41

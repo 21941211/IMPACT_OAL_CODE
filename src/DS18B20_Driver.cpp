@@ -44,10 +44,11 @@ void readDS18B20() {
   long currentMillis = millis();
   if (currentMillis >= (lastMillisST + 1000)){
 arrDS18B20[sampleCounterST] = sensors.getTempCByIndex(0);
-Serial.print("DS18B20 ");
+Serial.print("Soil temperature: ");
 Serial.print(sampleCounterST);
 Serial.print(": ");
 Serial.println(arrDS18B20[sampleCounterST]);
+ Serial.println("******************************************************");
 lastMillisST = millis();
 sampleCounterST++;
   }
@@ -59,7 +60,7 @@ if (sampleCounterST==DS18B20_SAMPLE_SIZE)
 bubbleSort(arrDS18B20, DS18B20_SAMPLE_SIZE);
 DS18B20median = trimmedMean(arrDS18B20, DS18B20_SAMPLE_SIZE, DS18B20_TRIM_SIZE);
 
-Serial.println("DS18B20 Done:");
+Serial.println("Soil temperature Done:");
 
 Serial.print(DS18B20median);
   Serial.println(" C");

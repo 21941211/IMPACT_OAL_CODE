@@ -19,6 +19,7 @@
         "lmic.h": "c",
         "*.tcc": "cpp",
         "complex": "cpp",
-        "cmath": "cpp"
+        "cmath": "cpp",
+        "random": "cpp"
     }
 }

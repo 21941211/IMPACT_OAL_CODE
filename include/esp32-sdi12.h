@@ -2,6 +2,7 @@
 #define ESP32_SDI12_H
 
 #include "SoftwareSerial.h"
+#include "debug.h"
 
 // Optional define to display SDI-12 serial debug output
 //#define SDI12_SERIAL_DEBUG

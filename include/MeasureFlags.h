@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "debug.h"
 
 extern uint8_t DHT22_DONE ;
 extern uint8_t SM_DONE  ;

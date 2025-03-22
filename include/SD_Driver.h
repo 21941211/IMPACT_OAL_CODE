@@ -13,6 +13,8 @@
 #include "SDI-12_Driver.h"
 #include "Lora_Driver.h"
 #include "SapFlow_Driver.h"
+#include "debug.h"
+
 
 #define BUFFERSIZE 41
 

@@ -14,7 +14,7 @@
 #include "SD_Driver.h"
 #include "DeepSleep_Driver.h"
 #include "DHT22_Driver.h"
-
+#include "debug.h"
 
 // Schedule TX every this many seconds (might become longer due to duty
 // cycle limitations).

@@ -92,21 +92,23 @@ void SF_Measure(){
  currentMillis = millis();
 
   //start reading temperature for baseline reference check
-  if (digitalRead(HEAT_PIN_SWITCH) == LOW && millisStartReferenceTemp == 0)
+  if (!HEATER_STATE && millisStartReferenceTemp == 0)
   {
-    Serial.println(F("Starting to read reference temperatures..."));
+    Serial.println(F("Starting to read reference sapflow temperatures..."));
     millisStartReferenceTemp = currentMillis;
   }
 
-  if (digitalRead(HEAT_PIN_SWITCH) == LOW && currentMillis - millisStartReferenceTemp >= 10000 && previousHeaterOnTime == 0)
+  if (!HEATER_STATE && currentMillis - millisStartReferenceTemp >= 10000 && previousHeaterOnTime == 0)
   {
     previousMillis = currentMillis;
     millisStartHeatPulse = currentMillis;
-    Serial.println(F("Done reading reference temperatures. Turning heating element on."));
-    digitalWrite(SDI12_EN_PIN, HIGH);
+    Serial.println(F("Done reading referenc sapflow temperatures. Turning heating element on."));
+    // SDI12_Setup();
+    // SDI12_CONNECTED = SDI12_Check();
     //digitalWrite(HEAT_PIN_SWITCH, HIGH);
     HEATER_STATE = 1;
-    Serial.println(F("Heater ON"));
+    Serial.println(F("Heater and SDI-12 ON"));
+     Serial.println("******************************************************");
     
     startHP = sampleCounter;
     previousHeaterOnTime = currentMillis;
@@ -126,6 +128,7 @@ void SF_Measure(){
     SDI12_Shutdown();
     HEATER_STATE = 0;
     Serial.println(F("Heater OFF"));
+     Serial.println("******************************************************");
     endHP = sampleCounter;
   }
 
@@ -165,6 +168,8 @@ Serial.println(size);
     if (isnan(HPV))
     {
       HPV=9999.99;
+    }else if(HPV < 0){
+      HPV = 0.0;
     }
     
     Serial.println(HPV);

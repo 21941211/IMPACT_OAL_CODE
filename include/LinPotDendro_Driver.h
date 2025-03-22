@@ -12,7 +12,7 @@
 #include "Adafruit_MCP3421.h"
 #include <Wire.h>
 #include "MeasureFlags.h"
-
+#include "debug.h"
 
 extern float delta_x;
 extern float xPos;

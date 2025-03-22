@@ -13,10 +13,13 @@
 #include "MeasureFlags.h"
 #include "SapFlow_Driver.h"
 #include "driver/rtc_io.h"
+#include "debug.h"
 
 #define PULLDOWN_GPIO GPIO_NUM_5 // Only RTC IO are allowed
 
 uint8_t SDWRITE_DONE = 0;
+uint8_t SDI12_MEASURE_STATE = 0;
+uint8_t SDI12_SETUP_COMPLETE = 0;
 
 void setup()
 {
@@ -29,15 +32,17 @@ void setup()
   Serial.begin(115200);
   delay(3000);
   Serial.println("Starting");
-  Serial.println("******************************************************");
-
-  Serial.println("Boot number: " + String(bootCount));
   if (bootCount >= 999999)
   {
     bootCount = 0;
   }
   else
     bootCount++;
+    Serial.println("Boot number: " + String(bootCount));
+  Serial.println("******************************************************");
+
+
+  
 
   pinMode(SD_ENABLE_PIN, OUTPUT);
   pinMode(LORA_CS_PIN, OUTPUT);
@@ -71,10 +76,31 @@ void setup()
   pinMode(DENDROMETER_ENABLE_PIN, OUTPUT);
 #endif
 
-#ifdef ENABLE_SDI12
-  SDI12_Setup();
-  SDI12_CONNECTED = SDI12_Check();
-  SDI12_Shutdown();
+#ifdef ENABLE_SDI12_TESTING
+  while (!SDI12_DONE)
+  {
+    if (!SDI12_CONNECTED)
+    {
+      SDI12_Setup();
+      while(1){
+      SDI12_CONNECTED = SDI12_Check();
+      delay(1000);
+      }
+
+    }
+
+    if (!SDI12_CONNECTED)
+    {
+      SDI12_DONE = 1;
+    }
+    else
+    {
+      while (!SDI12_Measure(SDI12_SOIL_MOISTURE));
+      while (!SDI12_Measure(SDI12_TEMPERATURE));
+      InfiniteStop();
+    }
+  }
+  InfiniteStop();
 #endif
 
 #if defined(ENABLE_SD) && defined(ENABLE_SDI12)
@@ -121,6 +147,7 @@ void loop()
     digitalWrite(DHT22_SM_ENABLE_PIN, HIGH); // turn the LED on (HIGH is the voltage level))
     DHTSetup();
     Serial.println("DHT22, SM and SF now ON");
+    Serial.println("******************************************************");
   }
 
   if (!MEASURE_COMPLETE)
@@ -140,16 +167,45 @@ void loop()
       SF_Measure();
 
     if (DENDRO_DONE && SF_DONE)
-      digitalWrite(DENDROMETER_ENABLE_PIN, LOW);
-
-    if (SDI12_CONNECTED && HEATER_STATE && !SDI12_DONE)
     {
-      SDI12_Measure(SDI12_SOIL_MOISTURE);
-      SDI12_Measure(SDI12_TEMPERATURE);
-      SDI12_Measure(SDI12_VOLTAGE);
+      digitalWrite(DENDROMETER_ENABLE_PIN, LOW);
+      Serial.println("This is test code");
     }
 
-    if (BATT_DONE && SM_DONE && ST_DONE && DENDRO_DONE && SF_DONE)
+    if (HEATER_STATE && !SDI12_DONE)
+    {
+      if (!SDI12_SETUP_COMPLETE)
+      {
+        SDI12_Setup();
+        SDI12_CONNECTED = SDI12_Check();
+        SDI12_SETUP_COMPLETE = 1;
+      }
+
+      if (!SDI12_CONNECTED)
+      {
+        SDI12_DONE = 1;
+      }
+      else
+      {
+        switch (SDI12_MEASURE_STATE)
+        {
+        case 0:
+          if (SDI12_Measure(SDI12_SOIL_MOISTURE))
+            SDI12_MEASURE_STATE = 1;
+          break;
+        case 1:
+          if (SDI12_Measure(SDI12_TEMPERATURE))
+          {
+            SDI12_MEASURE_STATE = 2;
+            SDI12_DONE = 1;
+            Serial.println("SDI12 Measurements Done");
+          }
+          break;
+        }
+      }
+    }
+
+    if (BATT_DONE && SM_DONE && ST_DONE && DENDRO_DONE && SF_DONE && SDI12_DONE)
     {
       Serial.println("All Measurements Done");
       Serial.println("******************************************************");
@@ -172,9 +228,12 @@ void loop()
       }
 
 #endif
+
       LoRaSetup();
+
 #ifdef ENABLE_SD
       decodePayload();
+      
 #endif
 
       SDWRITE_DONE = 1;

@@ -11,7 +11,7 @@ const byte key[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 
 String deviceIDHex;
 
 uint8_t endOfFirstPayload = 0;
-uint8_t endOfFirstLoRaPayload = 0;
+uint8_t startOfSDI12Payload = 0;
 byte dataRead;
 uint8_t dataBuffer[];
 std::vector<uint8_t> LoRaBuffer;
@@ -213,8 +213,10 @@ void readFile(fs::FS &fs, const char *path, uint8_t NormalOrSDI12)
   uint8_t index = 0;
   if (NormalOrSDI12 == 1)
   {
+
+
     index = LoRaBuffer.size();
-    endOfFirstLoRaPayload = index;
+    startOfSDI12Payload = LoRaBuffer.size();
   }
 
   while (file.available())
@@ -225,6 +227,8 @@ void readFile(fs::FS &fs, const char *path, uint8_t NormalOrSDI12)
     temp = file.read() - 48;
     if (temp >= 0)
     {
+      //Serial.print("LoRa buffer current size: ");
+      //Serial.println(currentSize);
       LoRaBuffer.resize(currentSize + 1);
       LoRaBuffer[index] = temp;
       index++;
@@ -252,8 +256,8 @@ void readFile(fs::FS &fs, const char *path, uint8_t NormalOrSDI12)
 
 
 int counter = 0;
-   while(counter < LoRaBuffer.size()-1){
-      Serial.println(counter);
+   while(counter < LoRaBuffer.size()-3){
+      //Serial.println(counter);
         PayLoadTest.resize(PayLoadTest.size() + 1);
         PayLoadTest[payLoadIndex] = LoRaBuffer[counter]*10+LoRaBuffer[counter+1];
         counter= counter+2;
@@ -262,23 +266,34 @@ int counter = 0;
   }
 else {
 
-    endOfFirstPayload = PayLoadTest.size();
-    Serial.print("End of first payload: ");
-    Serial.println(endOfFirstPayload);
-    Serial.print("End of first LoRa payload: ");
-    Serial.println(endOfFirstLoRaPayload);
+int counter = startOfSDI12Payload;
+int payLoadIndex = PayLoadTest.size();
 
-int counter = endOfFirstLoRaPayload;
-int payLoadIndex = endOfFirstPayload;
-      while(counter < LoRaBuffer.size()-1){
-      Serial.println(counter);
+  while(counter < LoRaBuffer.size()){
+    //  Serial.println(counter);
         PayLoadTest.resize(PayLoadTest.size() + 1);
-        PayLoadTest[payLoadIndex] = LoRaBuffer[counter];
-        //PayLoadTest[payLoadIndex] = LoRaBuffer[counter]*10+LoRaBuffer[counter+1];
-        // counter= counter+2;
-        counter++;
+        PayLoadTest[payLoadIndex] = LoRaBuffer[counter]*10+LoRaBuffer[counter+1];
+        counter= counter+2;
         payLoadIndex++;
-    }
+  }
+
+    // endOfFirstPayload = PayLoadTest.size();
+    // Serial.print("End of first payload: ");
+    // Serial.println(endOfFirstPayload);
+    // Serial.print("End of first LoRa payload: ");
+    // Serial.println(endOfFirstLoRaPayload);
+
+// int counter = endOfFirstLoRaPayload;
+// int payLoadIndex = endOfFirstPayload;
+//       while(counter < LoRaBuffer.size()-1){
+//       Serial.println(counter);
+//         PayLoadTest.resize(PayLoadTest.size() + 1);
+//         PayLoadTest[payLoadIndex] = LoRaBuffer[counter];
+//         //PayLoadTest[payLoadIndex] = LoRaBuffer[counter]*10+LoRaBuffer[counter+1];
+//         // counter= counter+2;
+//         counter++;
+//         payLoadIndex++;
+//     }
   }
 
   Serial.print("PayLoadTest size: ");
@@ -454,6 +469,8 @@ listDir(SD, "/", 0);
   uint64_t cardSize = SD.cardSize() / (1024 * 1024);
   Serial.printf("SD Card Size: %lluMB\n", cardSize);
 
+  Serial.println("");
+
     // Read parameters from file
 Serial.println("Reading loRa keys from file");
   if (!readParametersFromFile(paramFile)) {
@@ -496,13 +513,12 @@ void writeToSD()
   char SF_HPV[buffSize];
   char bootCountBuff[buffSize];
 
-
-
+Serial.println("Checking data buffers");
+  dataToBuff(dendro_buffer, microns, buffSize);
   dataToBuff(temp_buffer, tempMedian, buffSize);
   dataToBuff(hum_buffer, humMedian, buffSize);
-  dataToBuff(SM_buffer, SM_Vol, buffSize);
-  dataToBuff(dendro_buffer, microns, buffSize);
   dataToBuff(DS18B20_buffer, DS18B20median, buffSize);
+  dataToBuff(SM_buffer, SM_Vol, buffSize);
   dataToBuff(batt_buffer, batPercentage, buffSize);
   dataToBuff(SF_avgT1Before, avgT1Before, buffSize);
   dataToBuff(SF_avgT2Before, avgT2Before, buffSize);
@@ -512,6 +528,8 @@ void writeToSD()
   dataToBuff(SF_avgT2After, avgT2After, buffSize);
   dataToBuff(SF_HPV, HPV, buffSize);
   dataToBuff(bootCountBuff, float(bootCount)/100.0, buffSize);
+
+   Serial.println("******************************************************");
 
 
   SDSetup();
@@ -606,7 +624,7 @@ void SDSetup_SDI12()
 
   if (!SD.exists(fileName_SDI12))
   {
-    writeFile(SD, fileName_SDI12, "SM1,SM2,SM3,SM4,SM5,SM6,Temp1,Temp2,Temp3,Temp4,Temp5,Temp6,Voltage (V)\n");
+    writeFile(SD, fileName_SDI12, "SM1,SM2,SM3,SM4,SM5,SM6,Temp1,Temp2,Temp3,Temp4,Temp5,Temp6\n");
   }
 
   Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));
@@ -631,11 +649,15 @@ void writeToSD_SDI12()
   char Temp4_buffer[buffSize];
   char Temp5_buffer[buffSize];
   char Temp6_buffer[buffSize];
-  char Voltage_buffer[buffSize];
+  //char Voltage_buffer[buffSize];
 
   char *bufferArray[] = {SM1_buffer, SM2_buffer, SM3_buffer, SM4_buffer, SM5_buffer, SM6_buffer,
-                         Temp1_buffer, Temp2_buffer, Temp3_buffer, Temp4_buffer, Temp5_buffer, Temp6_buffer,
-                         Voltage_buffer};
+                         Temp1_buffer, Temp2_buffer, Temp3_buffer, Temp4_buffer, Temp5_buffer, Temp6_buffer};
+
+                        //   char *bufferArray[] = {SM1_buffer, SM2_buffer, SM3_buffer, SM4_buffer, SM5_buffer, SM6_buffer,
+                        //  Temp1_buffer, Temp2_buffer, Temp3_buffer, Temp4_buffer, Temp5_buffer, Temp6_buffer,
+                        //  Voltage_buffer};
+
 
   int numBuffers = sizeof(bufferArray) / sizeof(bufferArray[0]);
 
@@ -647,6 +669,8 @@ void writeToSD_SDI12()
   SDSetup_SDI12();
 
   String allMeasurements = SDI12_Measurements_To_String();
+
+  Serial.println("SDI-12 Measurement check:");
   Serial.println(allMeasurements);
   appendFile(SD, fileName_SDI12, "\n");
   appendFile(SD, fileName_SDI12, allMeasurements.c_str());
@@ -675,66 +699,80 @@ void parsePayload(const String &payload, uint8_t *byteArray)
 
 void decodePayload (){
 
-float dendro ;
-float temp;
-float hum;
-float SM;
-float DS18B20;
-float batt;
-float SF_avgT1Before;
-float SF_avgT2Before;
-float SF_avgT1During;
-float SF_avgT2During;
-float SF_avgT1After;
-float SF_avgT2After;
-float SF_HPV;
-int bootCountNum;
+
+float values[26];
+
+// for (int i = 0; i < PayLoadTest.size(); i++)
+// {
+//   values[i] = PayLoadTest[i]*100+PayLoadTest[i+1]+PayLoadTest[i+2]*0.01;
+//   i = i+3;
+// }
+ 
+ int i = 0;
+int j = 0;
+Serial.println("Decoding payload as seen by TTN");
+ while (i <= PayLoadTest.size())
+ {
+ values[j] = float(PayLoadTest[i]*100.0)+float(PayLoadTest[i+1])*1.0+float(PayLoadTest[i+2]*0.01);
+  i = i+3;
+  j++;
+ }
+ 
+for (int i = 0; i < 26; i++)
+{
+  Serial.print(values[i]);
+  Serial.print(",");
+}
+Serial.println("");
+
+
+
 
 
 //"Dendrometer,Air Temperature, Air Humidity,Soil temperature,Soil Water Volume cm^3/cm^3,Battery,SF T1 Before,SF T2 Before,SF T1 During,SF T2 During,SF T1 After,SF T2 After,HPV\n");
   
 
-dendro = PayLoadTest[0]*100.0 + PayLoadTest[1] + PayLoadTest[2]*0.01;
-temp = PayLoadTest[3]*100.0 + PayLoadTest[4] + PayLoadTest[5]*0.01;
-hum = PayLoadTest[6]*100.0 + PayLoadTest[7] + PayLoadTest[8]*0.01;
-DS18B20 = PayLoadTest[9]*100.0 + PayLoadTest[10] + PayLoadTest[11]*0.01;
-SM = PayLoadTest[12]*100.0 + PayLoadTest[13] + PayLoadTest[14]*0.01;
-batt = PayLoadTest[15]*100.0 + PayLoadTest[16] + PayLoadTest[17]*0.01;
-SF_avgT1Before = PayLoadTest[18]*100.0 + PayLoadTest[19] + PayLoadTest[20]*0.01;
-SF_avgT2Before = PayLoadTest[21]*100.0 + PayLoadTest[22] + PayLoadTest[23]*0.01;
-SF_avgT1During = PayLoadTest[24]*100.0 + PayLoadTest[25] + PayLoadTest[26]*0.01;
-SF_avgT2During = PayLoadTest[27]*100.0 + PayLoadTest[28] + PayLoadTest[29]*0.01;
-SF_avgT1After = PayLoadTest[30]*100.0 + PayLoadTest[31] + PayLoadTest[32]*0.01;
-SF_avgT2After = PayLoadTest[33]*100.0 + PayLoadTest[34] + PayLoadTest[35]*0.01;
-SF_HPV = PayLoadTest[36]*100.0 + PayLoadTest[37] + PayLoadTest[38]*0.01;
-bootCountNum = (PayLoadTest[39]*100.0 + PayLoadTest[40] + PayLoadTest[41]*0.01)*100;
+// dendro = PayLoadTest[0]*100.0 + PayLoadTest[1] + PayLoadTest[2]*0.01;
+// temp = PayLoadTest[3]*100.0 + PayLoadTest[4] + PayLoadTest[5]*0.01;
+// hum = PayLoadTest[6]*100.0 + PayLoadTest[7] + PayLoadTest[8]*0.01;
+// DS18B20 = PayLoadTest[9]*100.0 + PayLoadTest[10] + PayLoadTest[11]*0.01;
+// SM = PayLoadTest[12]*100.0 + PayLoadTest[13] + PayLoadTest[14]*0.01;
+// batt = PayLoadTest[15]*100.0 + PayLoadTest[16] + PayLoadTest[17]*0.01;
+// SF_avgT1Before = PayLoadTest[18]*100.0 + PayLoadTest[19] + PayLoadTest[20]*0.01;
+// SF_avgT2Before = PayLoadTest[21]*100.0 + PayLoadTest[22] + PayLoadTest[23]*0.01;
+// SF_avgT1During = PayLoadTest[24]*100.0 + PayLoadTest[25] + PayLoadTest[26]*0.01;
+// SF_avgT2During = PayLoadTest[27]*100.0 + PayLoadTest[28] + PayLoadTest[29]*0.01;
+// SF_avgT1After = PayLoadTest[30]*100.0 + PayLoadTest[31] + PayLoadTest[32]*0.01;
+// SF_avgT2After = PayLoadTest[33]*100.0 + PayLoadTest[34] + PayLoadTest[35]*0.01;
+// SF_HPV = PayLoadTest[36]*100.0 + PayLoadTest[37] + PayLoadTest[38]*0.01;
+// bootCountNum = (PayLoadTest[39]*100.0 + PayLoadTest[40] + PayLoadTest[41]*0.01)*100;
 
-Serial.print("Dendrometer: ");
-Serial.println(dendro);
-Serial.print("Temperature: ");
-Serial.println(temp);
-Serial.print("Humidity: ");
-Serial.println(hum);
-Serial.print("Soil Moisture: ");
-Serial.println(SM);
-Serial.print("DS18B20: ");
-Serial.println(DS18B20);
-Serial.print("Battery: ");
-Serial.println(batt);
-Serial.print("SF T1 Before: ");
-Serial.println(SF_avgT1Before);
-Serial.print("SF T2 Before: ");
-Serial.println(SF_avgT2Before);
-Serial.print("SF T1 During: ");
-Serial.println(SF_avgT1During);
-Serial.print("SF T2 During: ");
-Serial.println(SF_avgT2During);
-Serial.print("SF T1 After: ");
-Serial.println(SF_avgT1After);
-Serial.print("SF T2 After: ");
-Serial.println(SF_avgT2After);
-Serial.print("HPV: ");
-Serial.println(SF_HPV);
-Serial.print("Boot count: ");
-Serial.println(bootCountNum);
+// Serial.print("Dendrometer: ");
+// Serial.println(dendro);
+// Serial.print("Temperature: ");
+// Serial.println(temp);
+// Serial.print("Humidity: ");
+// Serial.println(hum);
+// Serial.print("Soil Moisture: ");
+// Serial.println(SM);
+// Serial.print("DS18B20: ");
+// Serial.println(DS18B20);
+// Serial.print("Battery: ");
+// Serial.println(batt);
+// Serial.print("SF T1 Before: ");
+// Serial.println(SF_avgT1Before);
+// Serial.print("SF T2 Before: ");
+// Serial.println(SF_avgT2Before);
+// Serial.print("SF T1 During: ");
+// Serial.println(SF_avgT1During);
+// Serial.print("SF T2 During: ");
+// Serial.println(SF_avgT2During);
+// Serial.print("SF T1 After: ");
+// Serial.println(SF_avgT1After);
+// Serial.print("SF T2 After: ");
+// Serial.println(SF_avgT2After);
+// Serial.print("HPV: ");
+// Serial.println(SF_HPV);
+// Serial.print("Boot count: ");
+// Serial.println(bootCountNum);
 }

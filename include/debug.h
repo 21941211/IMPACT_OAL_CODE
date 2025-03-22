@@ -1,4 +1,4 @@
-
+#include <Arduino.h>
 
 //Debugging definitions
  #define ENABLE_PRINT
@@ -6,6 +6,7 @@
 #define ENABLE_SD
 #define ENABLE_MEASURE
 #define ENABLE_SDI12
+//#define ENABLE_SDI12_TESTING
 #define ENABLE_LED_DEBUG
 
 //#define ENABLE_DENDRO_TEST
@@ -28,3 +29,5 @@ public:
     void println(...) {}
 } Serial;
 #endif
+
+void InfiniteStop();

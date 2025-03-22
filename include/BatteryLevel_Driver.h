@@ -4,7 +4,7 @@
 #include "DeepSleep_Driver.h"
 #include "ADC_Driver.h"
 #include "MeasureFlags.h"
-
+#include "debug.h"
 
 void measBat();
 int avgBat();
