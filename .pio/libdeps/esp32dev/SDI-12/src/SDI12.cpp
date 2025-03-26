@@ -92,7 +92,7 @@ uint16_t SDI12::bitTimes(uint8_t dt) {
 uint8_t          SDI12::_rxBuffer[SDI12_BUFFER_SIZE];  // The Rx buffer
 volatile uint8_t SDI12::_rxBufferTail = 0;             // index of buff tail
 volatile uint8_t SDI12::_rxBufferHead = 0;             // index of buff head
-
+uint8_t          charRecieved = 0;                     // flag for char received
 
 /* ================ Reading from the SDI-12 Buffer ==================================*/
 
@@ -656,7 +656,9 @@ void SDI12::receiveISR() {
     // If this was the 8th or more bit then the character and parity are complete.
     if (rxState > 7) {
       rxValue &= 0x7F;        // Throw away the parity bit (and with 0b01111111)
+     //Serial.println("interrupt recieved, writing character to buffer");
       charToBuffer(rxValue);  // Put the finished character into the buffer
+      charRecieved = 1;
 
 
       // if this is LOW, or we haven't exceeded the number of bits in a

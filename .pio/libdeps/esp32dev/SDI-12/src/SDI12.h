@@ -978,4 +978,7 @@ class SDI12 : public Stream {
   /**@}*/
 };
 
+
+extern uint8_t  charRecieved;
+
 #endif  // SRC_SDI12_H_

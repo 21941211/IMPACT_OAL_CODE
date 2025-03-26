@@ -1,9 +1,13 @@
 #include "DeepSleep_Driver.h"
 
 
-RTC_DATA_ATTR float SLEEP_TIMEOUT = 0;
+RTC_DATA_ATTR int SLEEP_TIME = 0;
 
 RTC_DATA_ATTR int bootCount = 0;
+
+RTC_DATA_ATTR uint8_t FirstLightSleep = 1;
+
+RTC_DATA_ATTR int initialActiveTime = 0;
 
 void print_wakeup_reason(){
   esp_sleep_wakeup_cause_t wakeup_reason;
@@ -49,26 +53,46 @@ if (measureComplete)
 
 void goSleep(int sleepTime){
 
-SLEEP_TIMEOUT = SLEEP_TIMEOUT + (millis()/1000)+LIGHT_SLEEP;
-Serial.print("Sleep checker:");
-Serial.println(SLEEP_TIMEOUT);
+if (sleepTime==LIGHT_SLEEP){
+ if(!FirstLightSleep){
+  Serial.println(millis());
+     SLEEP_TIME = SLEEP_TIME + LIGHT_SLEEP + millis()/1000;
+     Serial.print("Current cycle time:");
+     Serial.println(SLEEP_TIME);
 
-if (SLEEP_TIMEOUT >= TIMOUT)
-{
-  SLEEP_TIMEOUT = 0;
- MEASURE_COMPLETE = 0;
+  }else{
+    esp_sleep_enable_timer_wakeup(sleepTime*uS_TO_S_FACTOR);
+    FirstLightSleep = 0;
+    initialActiveTime = millis()/1000;
+    Serial.println("Initial active time: "+ String(initialActiveTime));
+        Serial.println("Going to first light sleep");
+  Serial.flush(); 
+  esp_deep_sleep_start();
+  }
+  if (SLEEP_TIME>=TIMEOUT)
+  {
+    Serial.println("Transmission timeout reached, going to DEEP SLEEP now...");
+    FirstLightSleep = 1;
+   
+    Serial.flush(); 
+    int remainingSleepTime = DEEP_SLEEP-initialActiveTime-SLEEP_TIME;
+    Serial.println("Remaining deep sleep time: "+String(remainingSleepTime));
+    esp_sleep_enable_timer_wakeup(remainingSleepTime*uS_TO_S_FACTOR);
+     initialActiveTime = 0;
+    esp_deep_sleep_start();
+  }else{
+       esp_sleep_enable_timer_wakeup(sleepTime*uS_TO_S_FACTOR);
+    Serial.println("Going to sleep now");
+  Serial.flush(); 
+  esp_deep_sleep_start();
+  }
+}
+else{
+    int remainingSleepTime = (DEEP_SLEEP - millis()/1000);
+    Serial.println("Remaining sleep time: "+ String(remainingSleepTime)+" s");
+    Serial.flush(); 
+    esp_sleep_enable_timer_wakeup(remainingSleepTime*uS_TO_S_FACTOR - (millis()/1000)*uS_TO_S_FACTOR);
+    esp_deep_sleep_start();
 }
 
-
- esp_sleep_enable_timer_wakeup(sleepTime * uS_TO_S_FACTOR);
-    Serial.println("Setup ESP32 to sleep for every " + String(sleepTime) +
-  " Seconds");
-
-
-Serial.println("Going to sleep now");
-  delay(1000);
-
-  Serial.flush(); 
-  
-  esp_deep_sleep_start();
 }

@@ -8,6 +8,10 @@ float slope = 2.48;      // slope from linear fit
 float intercept = -0.72; // intercept from linear fit
 float SM_Vol = 0;
 
+int airValue = 8191;
+int waterValue = 5016;
+
+
 int sampleCounterSM = 0;
 long lastMillisSM = 0;
 
@@ -34,9 +38,19 @@ void SM_Measure()
     bubbleSort(arrSM, SM_SAMPLE_SIZE);
     adc = trimmedMean(arrSM, SM_SAMPLE_SIZE, SM_TRIM_SIZE);
 
-    //Serial.println(adc);
+    Serial.println("ADC value: " +String(adc));
+  int SM_Percentage = map(adc,airValue,waterValue,0,100);
 
     voltage = (adc * 2600.0) / 8191.0;
+
+  if(SM_Percentage>=100){
+    SM_Percentage=100;
+  }
+  if(SM_Percentage<=0){
+    SM_Percentage=0;
+  }
+
+      Serial.println("Soil moisture percentage :" + String(SM_Percentage)+ "%");
 
     Serial.println("SM Done:");
 

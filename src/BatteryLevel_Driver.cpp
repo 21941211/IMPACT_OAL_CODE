@@ -109,16 +109,16 @@ Serial.println("Battery measurement done:");
  Serial.print(scaledVoltage); 
 Serial.println(" V");
 
-scaledVoltage = VoltageCorrection(scaledVoltage);
+//scaledVoltage = VoltageCorrection(scaledVoltage);
 
 
 if (scaledVoltage > 4.2){
     scaledVoltage = 4.2;
 }
 
-Serial.print("Scaled Voltage after correction: ");
- Serial.print(scaledVoltage);
-Serial.println(" V");
+//Serial.print("Scaled Voltage after correction: ");
+ //Serial.print(scaledVoltage);
+//Serial.println(" V");
   
 
 

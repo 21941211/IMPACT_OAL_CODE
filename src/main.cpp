@@ -18,7 +18,7 @@
 #define PULLDOWN_GPIO GPIO_NUM_5 // Only RTC IO are allowed
 
 uint8_t SDWRITE_DONE = 0;
-uint8_t SDI12_MEASURE_STATE = 0;
+
 uint8_t SDI12_SETUP_COMPLETE = 0;
 
 void setup()
@@ -30,15 +30,24 @@ void setup()
   // Slow down CPU for lower power usage
   setCpuFrequencyMhz(40);
   Serial.begin(115200);
-  delay(3000);
+  delay(500);
+
+
+
   Serial.println("Starting");
-  if (bootCount >= 999999)
+    Serial.println("Checking flags and boot count: ");
+  if (bootCount > 999999)
   {
     bootCount = 0;
   }
-  else
+  else if(!MEASURE_COMPLETE){
     bootCount++;
+  }
+
     Serial.println("Boot number: " + String(bootCount));
+    Serial.println("SDI12-Connection Status (0 = NC, 1 = C): " +String(SDI12_CONNECTED));
+    Serial.println("SDI12-Connection Type (0 = 60cm, 1 = 90cm, 2 = CS655, 3 = none): "+ String(SDI12_TYPE));
+    Serial.println("Measurement transmitted in previous cycle (0 = yes, 1 = no): " + String(MEASURE_COMPLETE));
   Serial.println("******************************************************");
 
 
@@ -50,7 +59,7 @@ void setup()
   pinMode(DHT22_SM_ENABLE_PIN, OUTPUT);
 
 #ifdef ENABLE_SD
-  SDSetup();
+  //SDSetup();
 
 #else
   Serial.println("SD Card Disabled, using default LoRa parameters");
@@ -82,12 +91,20 @@ void setup()
     if (!SDI12_CONNECTED)
     {
       SDI12_Setup();
-      while(1){
+      //while(1){
       SDI12_CONNECTED = SDI12_Check();
+
+        #ifdef ENABLE_CS655_TESTING
+         while(!testCS655());     
+
+        #endif
+
+       InfiniteStop();
+
       delay(1000);
       }
 
-    }
+    // }
 
     if (!SDI12_CONNECTED)
     {
@@ -97,7 +114,8 @@ void setup()
     {
       while (!SDI12_Measure(SDI12_SOIL_MOISTURE));
       while (!SDI12_Measure(SDI12_TEMPERATURE));
-      InfiniteStop();
+      SDSetup_SDI12();
+     
     }
   }
   InfiniteStop();
@@ -106,7 +124,7 @@ void setup()
 #if defined(ENABLE_SD) && defined(ENABLE_SDI12)
   if (SDI12_CONNECTED)
   {
-    SDSetup_SDI12();
+   SDSetup_SDI12();
   }
 #endif
 
@@ -134,6 +152,12 @@ void setup()
 void loop()
 {
 
+#ifdef ENABLE_CS655_TESTING
+testCS655();
+#endif
+
+
+#ifndef ENABLE_CS655_TESTING
 #ifndef ENABLE_SD
   MEASURE_COMPLETE = 1;
 #endif
@@ -196,9 +220,14 @@ void loop()
         case 1:
           if (SDI12_Measure(SDI12_TEMPERATURE))
           {
-            SDI12_MEASURE_STATE = 2;
+            SDI12_MEASURE_STATE = 3;
             SDI12_DONE = 1;
             Serial.println("SDI12 Measurements Done");
+          }
+          case 2:
+          if(testCS655()) {
+             SDI12_DONE = 1;
+            Serial.println("CS655 Measurements Done");
           }
           break;
         }
@@ -244,4 +273,5 @@ void loop()
     os_runloop_once();
 #endif
   }
+  #endif
 }

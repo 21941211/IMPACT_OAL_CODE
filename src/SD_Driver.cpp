@@ -26,12 +26,15 @@ uint8_t LoRaBuffer_SDI12[13] = {0};
 #else
 #define FILE_NAME "/Measurements.csv"
 #endif
-#define FILE_NAME_SDI12 "/SDI_12_Measurements.csv"
+#define FILE_NAME_SDI12_60 "/SDI_12_60cm_Measurements.csv"
+#define FILE_NAME_SDI12_90 "/SDI_12_90cm_Measurements.csv"
+#define FILE_NAME_CS655 "/SDI_12_CS655_Measurements.csv"
 #define SYSPARAMS "/parameters.txt"
 
 
  const char *fileName = FILE_NAME;
-const char *fileName_SDI12 = FILE_NAME_SDI12;
+const char *fileName_SDI12;
+
 
 char *paramFile = SYSPARAMS;
 
@@ -576,8 +579,11 @@ void readLastEntry()
   readFile(SD, fileName, 0);
 
 
+
+
   if (SDI12_CONNECTED == 1)
   {
+    SDSetup_SDI12();
     readFile(SD, fileName_SDI12, 1);
   }
 #endif
@@ -588,10 +594,10 @@ void enableSD_ON()
 {
 
   digitalWrite(SD_ENABLE_PIN, LOW);
-delay(500);
+delay(100);
   digitalWrite(SD_ENABLE_PIN, HIGH);
   digitalWrite(LORA_CS_PIN, HIGH); // SET LoRa CS pin HIGH
-  delay(1000);
+  delay(100);
 }
 
 void enableSD_OFF()
@@ -619,13 +625,32 @@ void SDSetup_SDI12()
     return;
   }
 
+  switch (SDI12_TYPE)
+  {
+  case SDI12_DD_60:
+    fileName_SDI12 = FILE_NAME_SDI12_60;
+    break;
+  case SDI12_DD_90:
+    fileName_SDI12 = FILE_NAME_SDI12_90;
+    break;
+    case SDI12_CS655:
+    fileName_SDI12 = FILE_NAME_CS655;
+  default:
+    break;
+  }
+
   uint64_t cardSize = SD.cardSize() / (1024 * 1024);
   Serial.printf("SD Card Size: %lluMB\n", cardSize);
 
-  if (!SD.exists(fileName_SDI12))
+  if (!SD.exists(fileName_SDI12)&&SDI12_TYPE == SDI12_DD_60)
   {
     writeFile(SD, fileName_SDI12, "SM1,SM2,SM3,SM4,SM5,SM6,Temp1,Temp2,Temp3,Temp4,Temp5,Temp6\n");
-  }
+  } else if (!SD.exists(fileName_SDI12)&&SDI12_TYPE == SDI12_DD_90)
+  {
+    writeFile(SD, fileName_SDI12, "SM1,SM2,SM3,SM4,SM5,SM6,SM7,SM8,SM9,Temp1,Temp2,Temp3,Temp4,Temp5,Temp6,Temp7,Temp8,Temp9\n");
+    } else if (!SD.exists(fileName_SDI12) && SDI12_TYPE == SDI12_CS655) {
+    writeFile(SD, fileName_SDI12, "SM1,SM2,Temp\n");
+    }
 
   Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));
   Serial.printf("Used space: %lluMB\n", SD.usedBytes() / (1024 * 1024));
@@ -635,40 +660,17 @@ void SDSetup_SDI12()
 
 void writeToSD_SDI12()
 {
-  uint8_t buffSize = 8;
-
-  char SM1_buffer[buffSize];
-  char SM2_buffer[buffSize];
-  char SM3_buffer[buffSize];
-  char SM4_buffer[buffSize];
-  char SM5_buffer[buffSize];
-  char SM6_buffer[buffSize];
-  char Temp1_buffer[buffSize];
-  char Temp2_buffer[buffSize];
-  char Temp3_buffer[buffSize];
-  char Temp4_buffer[buffSize];
-  char Temp5_buffer[buffSize];
-  char Temp6_buffer[buffSize];
-  //char Voltage_buffer[buffSize];
-
-  char *bufferArray[] = {SM1_buffer, SM2_buffer, SM3_buffer, SM4_buffer, SM5_buffer, SM6_buffer,
-                         Temp1_buffer, Temp2_buffer, Temp3_buffer, Temp4_buffer, Temp5_buffer, Temp6_buffer};
-
-                        //   char *bufferArray[] = {SM1_buffer, SM2_buffer, SM3_buffer, SM4_buffer, SM5_buffer, SM6_buffer,
-                        //  Temp1_buffer, Temp2_buffer, Temp3_buffer, Temp4_buffer, Temp5_buffer, Temp6_buffer,
-                        //  Voltage_buffer};
-
-
-  int numBuffers = sizeof(bufferArray) / sizeof(bufferArray[0]);
-
-  // for (int i = 0; i < numBuffers; i++)
-  // {
-  //   dataToBuff(bufferArray[i], SDI12_SM[i]*1000.0, buffSize);
-  // }
 
   SDSetup_SDI12();
 
-  String allMeasurements = SDI12_Measurements_To_String();
+String allMeasurements = "";
+if (SDI12_TYPE==SDI12_CS655)
+{
+  allMeasurements = CS655_Measurements_To_String();
+} else{
+allMeasurements = SDI12_Measurements_To_String();
+}
+
 
   Serial.println("SDI-12 Measurement check:");
   Serial.println(allMeasurements);
@@ -697,82 +699,101 @@ void parsePayload(const String &payload, uint8_t *byteArray)
   }
 }
 
-void decodePayload (){
+void decodePayload() {
+    Serial.println("Decoding payload as seen by TTN");
 
+    int i = 0;
+    while (i <= PayLoadTest.size() - 3) {  // Ensure we don't go out of bounds
+        float value = float(PayLoadTest[i] * 100.0) + 
+                      float(PayLoadTest[i + 1]) * 1.0 + 
+                      float(PayLoadTest[i + 2] * 0.01);
 
-float values[26];
+        Serial.print(value);
+        Serial.print(",");
 
-// for (int i = 0; i < PayLoadTest.size(); i++)
-// {
-//   values[i] = PayLoadTest[i]*100+PayLoadTest[i+1]+PayLoadTest[i+2]*0.01;
-//   i = i+3;
-// }
- 
- int i = 0;
-int j = 0;
-Serial.println("Decoding payload as seen by TTN");
- while (i <= PayLoadTest.size())
- {
- values[j] = float(PayLoadTest[i]*100.0)+float(PayLoadTest[i+1])*1.0+float(PayLoadTest[i+2]*0.01);
-  i = i+3;
-  j++;
- }
- 
-for (int i = 0; i < 26; i++)
-{
-  Serial.print(values[i]);
-  Serial.print(",");
+        i += 3;
+    }
+
+    Serial.println("");  // New line after printing all values
 }
-Serial.println("");
+
+
+// void decodePayload (){
+
+
+// float values[26];
+
+// // for (int i = 0; i < PayLoadTest.size(); i++)
+// // {
+// //   values[i] = PayLoadTest[i]*100+PayLoadTest[i+1]+PayLoadTest[i+2]*0.01;
+// //   i = i+3;
+// // }
+ 
+//  int i = 0;
+// int j = 0;
+// Serial.println("Decoding payload as seen by TTN");
+//  while (i <= PayLoadTest.size())
+//  {
+//  values[j] = float(PayLoadTest[i]*100.0)+float(PayLoadTest[i+1])*1.0+float(PayLoadTest[i+2]*0.01);
+//   i = i+3;
+//   j++;
+//  }
+ 
+// for (int i = 0; i < 26; i++)
+// {
+//   Serial.print(values[i]);
+//   Serial.print(",");
+// }
+// Serial.println("");
 
 
 
 
 
-//"Dendrometer,Air Temperature, Air Humidity,Soil temperature,Soil Water Volume cm^3/cm^3,Battery,SF T1 Before,SF T2 Before,SF T1 During,SF T2 During,SF T1 After,SF T2 After,HPV\n");
+// //"Dendrometer,Air Temperature, Air Humidity,Soil temperature,Soil Water Volume cm^3/cm^3,Battery,SF T1 Before,SF T2 Before,SF T1 During,SF T2 During,SF T1 After,SF T2 After,HPV\n");
   
 
-// dendro = PayLoadTest[0]*100.0 + PayLoadTest[1] + PayLoadTest[2]*0.01;
-// temp = PayLoadTest[3]*100.0 + PayLoadTest[4] + PayLoadTest[5]*0.01;
-// hum = PayLoadTest[6]*100.0 + PayLoadTest[7] + PayLoadTest[8]*0.01;
-// DS18B20 = PayLoadTest[9]*100.0 + PayLoadTest[10] + PayLoadTest[11]*0.01;
-// SM = PayLoadTest[12]*100.0 + PayLoadTest[13] + PayLoadTest[14]*0.01;
-// batt = PayLoadTest[15]*100.0 + PayLoadTest[16] + PayLoadTest[17]*0.01;
-// SF_avgT1Before = PayLoadTest[18]*100.0 + PayLoadTest[19] + PayLoadTest[20]*0.01;
-// SF_avgT2Before = PayLoadTest[21]*100.0 + PayLoadTest[22] + PayLoadTest[23]*0.01;
-// SF_avgT1During = PayLoadTest[24]*100.0 + PayLoadTest[25] + PayLoadTest[26]*0.01;
-// SF_avgT2During = PayLoadTest[27]*100.0 + PayLoadTest[28] + PayLoadTest[29]*0.01;
-// SF_avgT1After = PayLoadTest[30]*100.0 + PayLoadTest[31] + PayLoadTest[32]*0.01;
-// SF_avgT2After = PayLoadTest[33]*100.0 + PayLoadTest[34] + PayLoadTest[35]*0.01;
-// SF_HPV = PayLoadTest[36]*100.0 + PayLoadTest[37] + PayLoadTest[38]*0.01;
-// bootCountNum = (PayLoadTest[39]*100.0 + PayLoadTest[40] + PayLoadTest[41]*0.01)*100;
+// // dendro = PayLoadTest[0]*100.0 + PayLoadTest[1] + PayLoadTest[2]*0.01;
+// // temp = PayLoadTest[3]*100.0 + PayLoadTest[4] + PayLoadTest[5]*0.01;
+// // hum = PayLoadTest[6]*100.0 + PayLoadTest[7] + PayLoadTest[8]*0.01;
+// // DS18B20 = PayLoadTest[9]*100.0 + PayLoadTest[10] + PayLoadTest[11]*0.01;
+// // SM = PayLoadTest[12]*100.0 + PayLoadTest[13] + PayLoadTest[14]*0.01;
+// // batt = PayLoadTest[15]*100.0 + PayLoadTest[16] + PayLoadTest[17]*0.01;
+// // SF_avgT1Before = PayLoadTest[18]*100.0 + PayLoadTest[19] + PayLoadTest[20]*0.01;
+// // SF_avgT2Before = PayLoadTest[21]*100.0 + PayLoadTest[22] + PayLoadTest[23]*0.01;
+// // SF_avgT1During = PayLoadTest[24]*100.0 + PayLoadTest[25] + PayLoadTest[26]*0.01;
+// // SF_avgT2During = PayLoadTest[27]*100.0 + PayLoadTest[28] + PayLoadTest[29]*0.01;
+// // SF_avgT1After = PayLoadTest[30]*100.0 + PayLoadTest[31] + PayLoadTest[32]*0.01;
+// // SF_avgT2After = PayLoadTest[33]*100.0 + PayLoadTest[34] + PayLoadTest[35]*0.01;
+// // SF_HPV = PayLoadTest[36]*100.0 + PayLoadTest[37] + PayLoadTest[38]*0.01;
+// // bootCountNum = (PayLoadTest[39]*100.0 + PayLoadTest[40] + PayLoadTest[41]*0.01)*100;
 
-// Serial.print("Dendrometer: ");
-// Serial.println(dendro);
-// Serial.print("Temperature: ");
-// Serial.println(temp);
-// Serial.print("Humidity: ");
-// Serial.println(hum);
-// Serial.print("Soil Moisture: ");
-// Serial.println(SM);
-// Serial.print("DS18B20: ");
-// Serial.println(DS18B20);
-// Serial.print("Battery: ");
-// Serial.println(batt);
-// Serial.print("SF T1 Before: ");
-// Serial.println(SF_avgT1Before);
-// Serial.print("SF T2 Before: ");
-// Serial.println(SF_avgT2Before);
-// Serial.print("SF T1 During: ");
-// Serial.println(SF_avgT1During);
-// Serial.print("SF T2 During: ");
-// Serial.println(SF_avgT2During);
-// Serial.print("SF T1 After: ");
-// Serial.println(SF_avgT1After);
-// Serial.print("SF T2 After: ");
-// Serial.println(SF_avgT2After);
-// Serial.print("HPV: ");
-// Serial.println(SF_HPV);
-// Serial.print("Boot count: ");
-// Serial.println(bootCountNum);
-}
+// // Serial.print("Dendrometer: ");
+// // Serial.println(dendro);
+// // Serial.print("Temperature: ");
+// // Serial.println(temp);
+// // Serial.print("Humidity: ");
+// // Serial.println(hum);
+// // Serial.print("Soil Moisture: ");
+// // Serial.println(SM);
+// // Serial.print("DS18B20: ");
+// // Serial.println(DS18B20);
+// // Serial.print("Battery: ");
+// // Serial.println(batt);
+// // Serial.print("SF T1 Before: ");
+// // Serial.println(SF_avgT1Before);
+// // Serial.print("SF T2 Before: ");
+// // Serial.println(SF_avgT2Before);
+// // Serial.print("SF T1 During: ");
+// // Serial.println(SF_avgT1During);
+// // Serial.print("SF T2 During: ");
+// // Serial.println(SF_avgT2During);
+// // Serial.print("SF T1 After: ");
+// // Serial.println(SF_avgT1After);
+// // Serial.print("SF T2 After: ");
+// // Serial.println(SF_avgT2After);
+// // Serial.print("HPV: ");
+// // Serial.println(SF_HPV);
+// // Serial.print("Boot count: ");
+// // Serial.println(bootCountNum);
+// }

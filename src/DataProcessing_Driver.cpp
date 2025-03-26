@@ -61,9 +61,10 @@ void dataToBuff(char buff[], float data, uint8_t buffSize)
     Serial.println("");
 }
 
-void extractValuesFromString(String &input, double *array, uint8_t bufferSize)
+void extractValuesFromStringSDI12(String &input, double *array, String &DevAddress, uint8_t bufferSize)
 {
 
+    
     uint8_t startIndex = input.indexOf('+', 1) + 1;        // Find the first '+' after the initial '.'
     uint8_t endIndex = input.indexOf('+', startIndex) - 1; // Find the first '+' after the initial '.'
 
