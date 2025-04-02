@@ -259,7 +259,7 @@ void readFile(fs::FS &fs, const char *path, uint8_t NormalOrSDI12)
 
 
 int counter = 0;
-   while(counter < LoRaBuffer.size()-3){
+   while(counter < LoRaBuffer.size()-1){
       //Serial.println(counter);
         PayLoadTest.resize(PayLoadTest.size() + 1);
         PayLoadTest[payLoadIndex] = LoRaBuffer[counter]*10+LoRaBuffer[counter+1];
@@ -432,6 +432,7 @@ void SDSetup()
 {
   enableSD_ON();
   setSPI(SD_SPI);
+  delay(200);
 
 int LEDFlash = 0;
   while(!SD.begin(SD_CS_PIN, SPI, 80000000)&&LEDFlash<5)
@@ -594,10 +595,10 @@ void enableSD_ON()
 {
 
   digitalWrite(SD_ENABLE_PIN, LOW);
-delay(100);
+delay(300);
   digitalWrite(SD_ENABLE_PIN, HIGH);
   digitalWrite(LORA_CS_PIN, HIGH); // SET LoRa CS pin HIGH
-  delay(100);
+  delay(300);
 }
 
 void enableSD_OFF()

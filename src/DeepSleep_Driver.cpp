@@ -72,6 +72,7 @@ if (sleepTime==LIGHT_SLEEP){
   if (SLEEP_TIME>=TIMEOUT)
   {
     Serial.println("Transmission timeout reached, going to DEEP SLEEP now...");
+    MEASURE_COMPLETE = 0;
     FirstLightSleep = 1;
    
     Serial.flush(); 

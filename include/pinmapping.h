@@ -33,7 +33,7 @@
 
 //Sapflow pins
 #define HEAT_PIN_SWITCH 11
-#define SF_SENSOR_ENABLE 2
+#define SF_DENDRO_EN_PIN GPIO_NUM_2
 
 // I2C Pins
 #define I2C_SDA 17
@@ -43,7 +43,7 @@
 
 //Dendrometer pins
 #define DENDROMETER_PIN 8
-#define DENDROMETER_ENABLE_PIN 2//4
+//#define DENDROMETER_ENABLE_PIN GPIO_NUM_2//4
 
 
 //Onboard LED pin

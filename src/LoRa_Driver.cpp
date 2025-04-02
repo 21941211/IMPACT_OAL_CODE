@@ -2,7 +2,7 @@
 
 using namespace std;
 
-uint8_t mydata[] = "000025500628002500992060002736027270275002733027930276605940";
+uint8_t mydata[] = "00002360055620238100230860024460244402462024530251902487000001";
 
 float num = 12.45;
 
@@ -38,15 +38,15 @@ Serial.println("Setting up LoRa");
 
     // LMIC init
     os_init();
-    // delay(200);
+     delay(200);
     Serial.println("OS Init Complete");
     //  Reset the MAC state. Session and pending data transfers will be discarded.
     LMIC_reset();
-    // delay(200);
+     delay(200);
     Serial.println("LMIC_reset complete");
     //  Start job (sending automatically starts OTAA too)
     do_send(&sendjob);
-    // delay(200);
+     delay(200);
     Serial.println("do_send complete");
     Serial.println("******************************************************");
 }

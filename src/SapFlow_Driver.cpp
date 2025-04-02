@@ -55,8 +55,14 @@ pinMode(HEAT_PIN_SWITCH, OUTPUT);
 digitalWrite(HEAT_PIN_SWITCH, LOW);
 
 
-pinMode(SF_SENSOR_ENABLE,OUTPUT);
-digitalWrite(SF_SENSOR_ENABLE,HIGH);
+//pinMode(SF_DENDRO_EN_PIN,OUTPUT);
+digitalWrite(SF_DENDRO_EN_PIN,HIGH);
+
+//delay(5000);
+
+//digitalWrite(SF_DENDRO_EN_PIN,LOW);
+
+//while(1);
 
   // Initialize I2C communication
   Wire.begin(I2C_SDA, I2C_SCL, 400000);
@@ -102,7 +108,7 @@ void SF_Measure(){
   {
     previousMillis = currentMillis;
     millisStartHeatPulse = currentMillis;
-    Serial.println(F("Done reading referenc sapflow temperatures. Turning heating element on."));
+    Serial.println(F("Done reading reference sapflow temperatures. Turning heating element on."));
     // SDI12_Setup();
     // SDI12_CONNECTED = SDI12_Check();
     //digitalWrite(HEAT_PIN_SWITCH, HIGH);
@@ -163,6 +169,9 @@ Serial.println(size);
     Serial.println(endHP);
 
     Serial.println("Sapflow done:");
+   // digitalWrite(SF_DENDRO_EN_PIN,LOW);
+   // gpio_reset_pin(SF_DENDRO_EN_PIN);
+    //while(1);
     Serial.println("Estimated HPV using Marshall formulab (scaled by 100): ");
     HPV = calculateHPV(arrSapflowT1, arrSapflowT2, startHP, endHP)*100.0;
     if (isnan(HPV))

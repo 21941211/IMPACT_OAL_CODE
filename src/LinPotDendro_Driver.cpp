@@ -39,10 +39,13 @@ void dendroSetup(){
   // Set up Dendrometer
   
  // Serial.println("Setting up I2C: ");
-  digitalWrite(DENDROMETER_ENABLE_PIN, HIGH); // turn the DENDRO on (HIGH is the voltage level)
+ //pinMode(SF_DENDRO_EN_PIN,OUTPUT);
+digitalWrite(SF_DENDRO_EN_PIN, HIGH); // turn the DENDRO on (HIGH is the voltage level)
  Serial.println("Dendro En Done");
 
   delay(2333);
+
+  
 
   // Initialize I2C communication
   Wire.begin(I2C_SDA, I2C_SCL, 400000);
@@ -52,13 +55,14 @@ void dendroSetup(){
   {
     Serial.println("Failed to find MCP3421 chip");
     DENDRO_DONE = 1;
+    // Wire.end();
     return;
     // while (1)
     // {
     //   delay(10); // Avoid a busy-wait loop
     // }
   }
- Serial.println("MCP3421 Found!");
+ //Serial.println("MCP3421 Found!");
 
   // Set the gain of the ADC
   mcp.setGain(GAIN_1X);
@@ -110,6 +114,8 @@ void dendroSetup(){
     //Serial.println("One-shot");
     break;
   }
+
+
 
   Serial.println("******************************************************");
 }

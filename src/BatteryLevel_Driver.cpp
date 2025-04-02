@@ -81,8 +81,8 @@ for (uint8_t i = 0; i < BAT_SAMPLE_SIZE; i++)
 bubbleSort(arrBatt, BAT_SAMPLE_SIZE);
 batMedian=trimmedMean(arrBatt,BAT_SAMPLE_SIZE, BAT_TRIM_SIZE);
 
- // Serial.print("ADC Value ");
-  //Serial.println(batMedian);
+ Serial.print("ADC Value ");
+  Serial.println(batMedian);
 
 
 
@@ -90,9 +90,9 @@ voltage = (double(batMedian)*2600.0)/8191.0;
 
 // Piecewise linear calibration
 
-//Serial.print("Voltage: ");
-//Serial.print(voltage); // read sensor
-//Serial.println(" mV");
+Serial.print("Voltage: ");
+Serial.print(voltage); // read sensor
+Serial.println(" mV");
 
 
 // voltage = correctVoltage(voltage);

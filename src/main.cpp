@@ -57,9 +57,10 @@ void setup()
   pinMode(LORA_CS_PIN, OUTPUT);
   pinMode(DEBUG_LED_PIN, OUTPUT);
   pinMode(DHT22_SM_ENABLE_PIN, OUTPUT);
+  
 
 #ifdef ENABLE_SD
-  //SDSetup();
+  SDSetup();
 
 #else
   Serial.println("SD Card Disabled, using default LoRa parameters");
@@ -82,7 +83,7 @@ void setup()
 
 #ifdef ENABLE_MEASURE
   pinMode(DHT22_SM_ENABLE_PIN, OUTPUT);
-  pinMode(DENDROMETER_ENABLE_PIN, OUTPUT);
+  pinMode(SF_DENDRO_EN_PIN, OUTPUT);
 #endif
 
 #ifdef ENABLE_SDI12_TESTING
@@ -141,9 +142,29 @@ void setup()
   }
 #endif
 
-  digitalWrite(DEBUG_LED_PIN, HIGH);
+  //digitalWrite(DEBUG_LED_PIN, HIGH);
 
+  //digitalWrite(GPIO_NUM_2, HIGH); // turn the DENDRO on (HIGH is the voltage level)
+  //delay(3000);
   dendroSetup();
+
+  // pinMode(I2C_SCL,INPUT);
+  //   pinMode(I2C_SDA,INPUT);
+
+
+
+  //gpio_reset_pin(GPIO_NUM_2);
+  //pinMode(GPIO_NUM_2,OUTPUT);
+  //  digitalWrite(GPIO_NUM_2,LOW);
+
+  // delay(3000);
+  //   digitalWrite(GPIO_NUM_2,LOW);
+
+  // delay(3000);
+  //   digitalWrite(GPIO_NUM_2,LOW);
+
+  // delay(3000);
+  // while (1);
   SFSetup();
 
   digitalWrite(DEBUG_LED_PIN, LOW); // turn the LED off (HIGH is the voltage level)
@@ -192,7 +213,22 @@ testCS655();
 
     if (DENDRO_DONE && SF_DONE)
     {
-      digitalWrite(DENDROMETER_ENABLE_PIN, LOW);
+      
+   
+     // gpio_reset_pin(GPIO_NUM_2);
+         //pinMode(GPIO_NUM_2,OUTPUT);
+    //  digitalWrite(GPIO_NUM_2,LOW);
+    
+     digitalWrite(SF_DENDRO_EN_PIN, LOW);   
+    pinMode(I2C_SCL,INPUT);
+    pinMode(I2C_SDA,INPUT);
+      Serial.println("Turning off Dendro and SF: ");
+    
+      if(!SDI12_CONNECTED){
+ rtc_gpio_hold_dis(GPIO_NUM_5);
+        gpio_reset_pin(GPIO_NUM_5);
+      }
+     
       Serial.println("This is test code");
     }
 
@@ -271,6 +307,7 @@ testCS655();
 #ifdef ENABLE_LORA
 
     os_runloop_once();
+   // delay(100);
 #endif
   }
   #endif
