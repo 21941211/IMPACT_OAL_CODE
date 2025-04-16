@@ -41,6 +41,7 @@ void SM_Measure()
     Serial.println("ADC value: " +String(adc));
   int SM_Percentage = map(adc,airValue,waterValue,0,100);
 
+
     voltage = (adc * 2600.0) / 8191.0;
 
   if(SM_Percentage>=100){
@@ -64,7 +65,7 @@ void SM_Measure()
     // Serial.print(correctedVoltageSM); // corrected voltage
     Serial.print(" mV, Theta_v: ");
     vol_water_cont = ((1.0 / (voltage / 1000.0)) * slope) + intercept; // calc of theta_v (vol. water content)
-    SM_Vol = vol_water_cont;
+    SM_Vol = voltage;
     Serial.print(vol_water_cont);
     Serial.println(" cm^3/cm^3"); // cm^3/cm^3
     Serial.println("******************************************************");

@@ -1,7 +1,7 @@
 /**
  * @file SDI12.h
- * @copyright (c) 2013-2020 Stroud Water Research Center (SWRC)
- *                          and the EnviroDIY Development Team
+ * @copyright Stroud Water Research Center
+ * @license This library is published under the BSD-3 license.
  * @date August 2013
  * @author Kevin M.Smith <SDI12@ethosengineering.org>
  *
@@ -56,7 +56,7 @@
  * SDI-12 is a communications protocol that uses a single data wire to communicate with
  * up to 62 uniquely addressed sensors.  So long as each sensor supports SDI-12, mixed
  * sensor types can appear on the same data bus.  Each address is a single character.
- * The valid ranges are 0-9, a-z, and A-Z. Only the datalogger can initiate
+ * The valid ranges are 0-9, a-z, and A-Z. Only the data logger can initiate
  * communications on the data bus.
  *
  * It does so by pulling the data line into a 5v state for at least 12 milliseconds to
@@ -65,7 +65,7 @@
  * the address of the device who should respond.  If there is a sensor on the bus with
  * that address, it is responsible for responding to the command.  Sensors should ignore
  * commands that were not issued to them, and should return to a sleep state until the
- * datalogger again issues the wakeup sequence.
+ * data logger again issues the wakeup sequence.
  *
  * @section connection_details Connection Details
  *
@@ -126,6 +126,7 @@
 #define SRC_SDI12_H_
 
 //  Import Required Libraries
+
 #include <inttypes.h>      // integer types library
 #include <Arduino.h>       // Arduino core library
 #include <Stream.h>        // Arduino Stream library
@@ -137,15 +138,43 @@ typedef const __FlashStringHelper* FlashString;
 /// a char not found in a valid ASCII numeric field
 #define NO_IGNORE_CHAR '\x01'
 
-#ifndef SDI12_WAKE_DELAY
+/* SDI-12 Data Buffer Size Specification */
+// The following data buffer sizes does not include CR+LF and CRC
+
 /**
- * @brief The amount of additional time in milliseconds that the sensor takes to wake
- * before being ready to receive a command.  Default is 0ms - meaning the sensor is
- * ready for a command by the end of the 12ms break.  Per protocol, the wake time must
- * be less than 100 ms.
+ * @brief The maximum number of characters in a single value in a data response.
+ *
+ * From SDI-12 Protocol v1.4, Table 11 The send data command (aD0!, aD1! . . . aD9!):
+ * the value portion must be structred as pd.d
+ * - p - the polarity sign (+ or -)
+ * - d - numeric digits before the decimal place
+ * - . - the decimal point (optional)
+ * - d - numeric digits after the decimal point
+ * - the maximum number of digits for a data value is 7, even without a decimal point
+ * - the minimum number of digits for a data value (excluding the decimal point) is 1
+ * - the maximum number of characters in a data value is 9 (the (polarity sign + 7
+ * digits + the decimal point))
+ * - The polarity symbol (+ or -) acts as a delimeter between the numeric values
  */
-#define SDI12_WAKE_DELAY 0
-#endif
+#define SDI12_VALUE_STR_SIZE 9
+/**
+ * @brief The maximum length of a standard data command response
+ *
+ * From SDI-12 Protocol v1.4, Section 4.4 SDI-12 Commands and Responses:
+ * The maximum number of characters that can be returned in the <values> part of the
+ * response to a D command is either 35 or 75. If the D command is issued to retrieve
+ * data in response to a concurrent measurement command, or in response to a high-volume
+ * ASCII measurement command, the maximum is 75. The maximum is also 75 in response to a
+ * continuous measurement command. Otherwise, the maximum is 35.
+ */
+#define SDI12_DATA_STR_SIZE 35
+/**
+ * @brief The maximum length of a data response to a concurrent, continuous, or high
+ * volume ASCII
+ *
+ * @see SDI12_VALUE_STR_SIZE
+ */
+#define SDI12_HV_STR_SIZE 75
 
 #ifndef SDI12_BUFFER_SIZE
 /**
@@ -161,15 +190,132 @@ typedef const __FlashStringHelper* FlashString;
 #define SDI12_BUFFER_SIZE 81
 #endif
 
-#if defined(ESP32) || defined(ESP8266)
+// SDI-12 Timing Specification
+/**
+ * @brief The size of a bit in microseconds
+ *
+ * 1200 baud = 1200 bits/second ~ 833.333 µs/bit
+ */
+#define SDI12_BIT_WIDTH_MICROS static_cast<uint16_t>(833)
+/**
+ * @brief The required "break" before sending commands, >= 12ms.  The line level is HIGH
+ * for the break.
+ */
+#define SDI12_LINE_BREAK_MICROS static_cast<uint16_t>(12100)
+/**
+ * @brief The required mark before a command or response, >= 8.33ms.  The line level is
+ * LOW for the marking.
+ */
+#define SDI12_LINE_MARK_MICROS static_cast<uint16_t>(8400)
+
+/**
+ * Possible SDI-12 States
+ *
+ * WAITING_FOR_BREAK:
+ * - Sensor (slave) is asleep, waiting for the data recorder (master) to hold the line
+ * high for >= 12ms.  Or the data recorder has not initiated communication with a sensor
+ * in too long and needs to re-alert it.
+ * - Starts:
+ *   - After a sensor receives an invalid address (return to sleep)
+ *   - When the master wants to address a different sensor
+ *   - After line has been in marking (LOW) for > 100 ms (sensor returns to sleep)
+ *   - After the line has been in marking (LOW) for > 87 ms  (sensor awaits break
+ * without sleeping, recorder must send break)
+ * - Ends:
+ *    - After 12 ms break has finished
+ *
+ * WAITING_FOR_MARKING:
+ * - Sensor has received a >= 12ms HIGH break and is waiting for the data recorder to
+ * send >= 8.33 ms of LOW marking.
+ * - Data recorder has finished sending a command, has relinquished the line, and is
+ * waiting for the sensor to hold the line LOW for >= 8.33 ms of marking
+ * - Starts:
+ *   - After line has been held continuously HIGH for >= 12ms
+ * - Ends:
+ *   - After the line has been in marking (LOW) for > 87 ms
+ *
+ * WAITING_FOR_START_BIT:
+ * - Line has been held low for >= 8.33 ms of marking
+ * - Ends:
+ *   - > 15 ms after the last stop bit of a command (for the recorder/master)
+ *   - > 1.66 ms after the last stop bit between characters within a command or response
+ *
+ */
+
+/**
+ * @brief A mask for the #rxState while waiting for a start bit; 0b11111111
+ */
+#define WAITING_FOR_START_BIT 0xFF
+
+
+#ifndef SDI12_IGNORE_PARITY
+/**
+ * @brief Check the value of the parity bit on reception
+ */
+#define SDI12_CHECK_PARITY
+#endif
+
+#ifndef SDI12_WAKE_DELAY
+/**
+ * @brief The amount of additional time in milliseconds that the sensor takes to wake
+ * before being ready to receive a command.  Default is 0ms - meaning the sensor is
+ * ready for a command by the end of the 12ms break.  Per protocol, the wake time must
+ * be less than 100 ms.
+ */
+#define SDI12_WAKE_DELAY 0
+#endif
+
+#ifndef SDI12_YIELD_MS
+/**
+ * @brief The time to delay, in milliseconds, to allow the buffer to fill before
+ * returning the value from the buffer.
+ *
+ * This may be needed for faster processors to account for the slow baud rate of SDI-12.
+ * Without this, the available() function may return 0 while we're in the middle of
+ * reading a character.
+ *
+ * There are 8.33 ms/character, so we delay by 8ms for fast processors to allow one
+ * character to finish.
+ */
+#if F_CPU >= 48000000L
+#define SDI12_YIELD_MS 8
+#else
+#define SDI12_YIELD_MS 0
+#endif
+#endif
+
+#ifndef SDI12_YIELD
+/**
+ * @brief A delay function to allow the buffer to fill before returning the value from
+ * the buffer.
+ *
+ * This may be needed for faster processors to account for the slow baud rate of SDI-12.
+ */
+#define SDI12_YIELD() \
+  { delay(SDI12_YIELD_MS); }
+#endif
+
+#if defined(PARTICLE) || defined(ESP8266) ||          \
+  (defined(ESP32) && !defined(ESP_ARDUINO_VERSION) && \
+   !defined(ESP_ARDUINO_VERSION_VAL))
+#define NEED_LOOKAHEAD_ENUM
+#endif
+#if (defined(ESP32) && defined(ESP_ARDUINO_VERSION_VAL) && defined(ESP_ARDUINO_VERSION))
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 5)
+// do nothing
+#else
+#define NEED_LOOKAHEAD_ENUM
+#endif
+#endif
+#if defined NEED_LOOKAHEAD_ENUM
 /**
  * @brief This enumeration provides the lookahead options for parseInt(), parseFloat().
  *
  * The rules set out here are used until either the first valid character is found or a
  * time out occurs due to lack of input.
  *
- * This enum is part of the Stream parent class, but is missing from the ESP8266 and
- * ESP32 cores.
+ * This enum is part of the Stream parent class, but is missing from the ESP8266 core
+ * and ESP32 cores prior to 3.0 (IDF prior to 5.1).
  */
 enum LookaheadMode {
   /** All invalid characters are ignored. */
@@ -180,23 +326,8 @@ enum LookaheadMode {
   /** Only tabs, spaces, line feeds & carriage returns are skipped.*/
   SKIP_WHITESPACE
 };
-/**
- * @brief The function or macro used to read the clock timer value.
- *
- * @note  The ESP32 and ESP8266 are fast enough processors that they can take the
- * time to read the core 'micros()' function still complete the other processing needed
- * on the serial bits.  All of the other processors using the Arduino core also have the
- * micros function, but the rest are not fast enough to waste the processor cycles to
- * use the micros function and must use the faster assembly macros to read the
- * processor timer directly.
- */
-#define READTIME sdi12timer.SDI12TimerRead()
-#else
-/**
- * @brief The function or macro used to read the clock timer value.
- */
-#define READTIME TCNTX
-#endif  // defined(ESP32) || defined(ESP8266)
+#endif  // NEED_LOOKAHEAD_ENUM
+#undef NEED_LOOKAHEAD_ENUM
 
 /**
  * @brief The main class for SDI 12 instances
@@ -218,90 +349,41 @@ class SDI12 : public Stream {
    * @brief The SDI12Timer instance to use for checking bit reception times.
    */
   static SDI12Timer sdi12timer;
-  /**
-   * @brief The size of a bit in microseconds
-   *
-   * 1200 baud = 1200 bits/second ~ 833.333 µs/bit
-   */
-  static const uint16_t bitWidth_micros;
-  /**
-   * @brief The required "break" before sending commands, >= 12ms
-   *
-   */
-  static const uint16_t lineBreak_micros;
-  /**
-   * @brief The required mark before a command or response, >= 8.33ms
-   */
-  static const uint16_t marking_micros;
-
-  /**
-   * @brief the width of a single bit in "ticks" of the cpu clock.
-   */
-  static const uint8_t txBitWidth;
-  /**
-   * @brief A fudge factor to make things work
-   */
-  static const uint8_t rxWindowWidth;
-  /**
-   * @brief The number of bits per tick, shifted by 2^10.
-   */
-  static const uint8_t bitsPerTick_Q10;
-  /**
-   * @brief A mask for the #rxState while waiting for a start bit; 0b11111111
-   */
-  static const uint8_t WAITING_FOR_START_BIT;
 
   /**
    * @brief Stores the time of the previous RX transition in micros
    */
-  static uint16_t prevBitTCNT;
+  sdi12timer_t prevBitTCNT;
   /**
    * @brief Tracks how many bits are accounted for on an incoming character.
    *
    * - if 0: indicates that we got a start bit
    * - if >0: indicates the number of bits received
+   *
+   * 0 - got start bit
+   * 1 - got data bit 0
+   * 2 - got data bit 1
+   * 3 - got data bit 2
+   * 4 - got data bit 3
+   * 5 - got data bit 4
+   * 6 - got data bit 5
+   * 7 - got data bit 6
+   * 8 - got data bit 7 (parity)
+   * 9 - got stop bit
+   * 255 - waiting for next start bit
    */
-  static uint8_t rxState;
+  uint8_t rxState;
   /**
    * @brief a bit mask for building a received character
    *
    * The mask has a single bit set, in the place of the active bit based on the
    * #rxState.
    */
-  static uint8_t rxMask;
+  uint8_t rxMask;
   /**
    * @brief the value of the character being built
    */
-  static uint8_t rxValue;
-
-  /**
-   * @brief static method for getting a 16-bit value from the multiplication of 2 8-bit
-   * values
-   *
-   * @param x The first 8 bit integer
-   * @param y The second 8 bit integer
-   * @return @m_span{m-type} uint16_t @m_endspan The result of the multiplication, as a
-   * 16 bit integer.
-   */
-  static uint16_t mul8x8to16(uint8_t x, uint8_t y);
-
-  /**
-   * @brief static method for calculating the number of bit-times that have elapsed
-   * given an 8-bit counter/timer timestamp.
-   *
-   * @param dt The current value of the 8-bit timer
-   * @return @m_span{m-type} uint16_t @m_endspan The number of bit times that have
-   * passed at 1200 baud.
-   *
-   * Adds a rxWindowWidth fudge factor to the time difference to get the number of
-   * ticks, and then multiplies the fudged ticks by the number of bits per tick.  Uses
-   * the number of bits per tick shifted up by 2^10 and then shifts the result down by
-   * the same amount to compensate for the fact that the number of bits per tick is a
-   * decimal the timestamp is only an 8-bit integer.
-   *
-   * @see https://github.com/SlashDevin/NeoSWSerial/pull/13#issuecomment-315463522
-   */
-  static uint16_t bitTimes(uint8_t dt);
+  uint8_t rxValue;
   /**@}*/
 
 
@@ -349,7 +431,7 @@ class SDI12 : public Stream {
   /**
    * @brief The buffer overflow status
    */
-  bool _bufferOverflow;
+  bool _bufferOverflow = false;
   /**@}*/
 
 
@@ -377,7 +459,7 @@ class SDI12 : public Stream {
   /**
    * @brief Return the number of bytes available in the Rx buffer
    *
-   * @return @m_span{m-type} int @m_endspan The number of characters in the buffer
+   * @return The number of characters in the buffer
    *
    * available() is a public function that returns the number of characters available in
    * the Rx buffer.
@@ -421,7 +503,7 @@ class SDI12 : public Stream {
   /**
    * @brief Reveal next byte in the Rx buffer without consuming it.
    *
-   * @return @m_span{m-type} int @m_endspan The next byte in the character buffer.
+   * @return The next byte in the character buffer.
    *
    * peek() is a public function that allows the user to look at the character that is
    * at the head of the buffer. Unlike read() it does not consume the character (i.e.
@@ -439,7 +521,7 @@ class SDI12 : public Stream {
   /**
    * @brief Return next byte in the Rx buffer, consuming it
    *
-   * @return @m_span{m-type} int @m_endspan The next byte in the character buffer.
+   * @return The next byte in the character buffer.
    *
    * read() returns the character at the current head in the buffer after incrementing
    * the index of the buffer head. This action 'consumes' the character, meaning it can
@@ -447,52 +529,62 @@ class SDI12 : public Stream {
    * the index to head intact, you should use peek();
    */
   int read() override;
+
   /**
-   * @brief Wait for sending to finish - because no TX buffering, does nothing
+   * @brief Wait for sending to finish - because no TX buffering and the write function
+   * is blocking, we don't need to do anything.
    */
   void flush() override {}
 
   /**
    * @brief Return the first valid (long) integer value from the current position.
    *
-   * The value of lookahead determines how parseInt looks ahead in the stream.
-   * See LookaheadMode enumeration at the top of the file.
-   * Lookahead is terminated by the first character that is not a valid part of an
-   * integer.
-   * Once parsing commences, 'ignore' will be skipped in the stream.
+   * This function is customized to only return numbers as they are passed in the data
+   * command responses.
    *
-   * @param lookahead the mode to use to look ahead in the
-   * stream, default is LookaheadMode::SKIP_ALL
-   * @param ignore a character to ignore in the stream, default is '\\x01'
-   * @return @m_span{m-type} long @m_endspan The first valid integer in the stream
+   * A data command response is structured <addr><values><CR><LF> or
+   * <addr><values><CRC><CR><LF> the value portion must be structred as pd.d
+   * - p - the polarity sign (+ or -)
+   * - d - numeric digits before the decimal place
+   * - . - the decimal point (optional)
+   * - d - numeric digits after the decimal point
+   * - the maximum number of digits for a data value is 7, even without a decimal point
+   * - the minimum number of digits for a data value (excluding the decimal point) is 1
+   * - the maximum number of characters in a data value is 9 (the (polarity sign + 7
+   * digits + the decimal point))
+   * - The polarity symbol (+ or -) acts as a delimeter between the numeric values
+   *
+   * Because of the well codified structure of the response, we know that we can always
+   * set the LookaheadMode to not skip any characters (LookaheadMode::SKIP_NONE), we
+   * accept a + or - only as the first character, and we should not ignore any other
+   * characters.
+   *
+   * @param warning Any input LookaheadMode or ignore character will be ignored by this
+   * function!
+   * @return The next valid integer in the stream or -9999 if there is a timeout or the
+   * next character is not part of an integer.
    *
    * @note This function _hides_ the Stream class function to allow a custom value to be
    * returned on timeout.  It cannot overwrite the Stream function because it is not
    * virtual.
-   * @see @ref SDI12::LookaheadMode
    */
-  long parseInt(LookaheadMode lookahead = SKIP_ALL, char ignore = NO_IGNORE_CHAR);
+  long parseInt(LookaheadMode = SKIP_NONE, char = '+');
 
   /**
    * @brief Return the first valid float value from the current position.
    *
-   * The value of lookahead determines how parseInt looks ahead in the stream.
-   * See LookaheadMode enumeration at the top of the file.
-   * Lookahead is terminated by the first character that is not a valid part of an
-   * integer.
-   * Once parsing commences, 'ignore' will be skipped in the stream.
+   * This is identical to SDI12::parseInt(LookaheadMode, char) except that it looks for
+   * a decimal and returns a float.
    *
-   * @param lookahead the mode to use to look ahead in the
-   * stream, default is LookaheadMode::SKIP_ALL
-   * @param ignore a character to ignore in the stream, default is '\\x01'
-   * @return @m_span{m-type} long @m_endspan The first valid float in the stream
+   * @return The first valid float in the stream or -9999 if there is a timeout or the
+   * next character is not part of an float.
    *
    * @note This function _hides_ the Stream class function to allow a custom value to be
    * returned on timeout.  It cannot overwrite the Stream function because it is not
    * virtual.
-   * @see @ref SDI12::LookaheadMode
+   * @see @ref SDI12::parseInt(LookaheadMode, char)
    */
-  float parseFloat(LookaheadMode lookahead = SKIP_ALL, char ignore = NO_IGNORE_CHAR);
+  float parseFloat(LookaheadMode = SKIP_NONE, char = '+');
 
  protected:
   /**
@@ -502,7 +594,10 @@ class SDI12 : public Stream {
    * stream
    * @param detectDecimal True to accept a decimal point ('.') as part of a
    * number
-   * @return @m_span{m-type} int @m_endspan The next numeric digit in the stream
+   * @return The next numeric digit in the stream
+   *
+   * @note This peekNextDigit function is almost identical to the Stream version, but it
+   * accepts a "+" as the start of a digit.
    */
   int peekNextDigit(LookaheadMode lookahead, bool detectDecimal);
   /**@}*/
@@ -519,7 +614,7 @@ class SDI12 : public Stream {
   /**
    * @brief reference to the data pin
    */
-  int8_t _dataPin;
+  int8_t _dataPin = -1;
 
  public:
   /**
@@ -565,7 +660,7 @@ class SDI12 : public Stream {
    * @brief Set the SDI12::_datapin and begin the SDI-12 object.
    *
    * @copydetails SDI12::begin()
-   * If the SDI-12 instance is created using the empty constuctor, this must be used
+   * If the SDI-12 instance is created using the empty constructor, this must be used
    * to set the data pin.
    *
    * @param dataPin The data pin's digital pin number
@@ -587,7 +682,7 @@ class SDI12 : public Stream {
    * sensor.
    *
    * The timeout return for an Arduino stream object when no character is available in
-   * the Rx buffer is "0."  For enviromental sensors (the typical SDI-12 users) 0 is a
+   * the Rx buffer is "0."  For environmental sensors (the typical SDI-12 users) 0 is a
    * common result value.  To better distinguish between a timeout because of no
    * sensor response and a true zero return, the timeout should be set to some value
    * that is NOT a possible return from that sensor.  If the timeout is not set, -9999
@@ -599,7 +694,7 @@ class SDI12 : public Stream {
    * return from the sensor.
    *
    * The "standard" timeout return for an Arduino stream object when no character is
-   * available in the Rx buffer is "0."  For enviromental sensors (the typical SDI-12
+   * available in the Rx buffer is "0."  For environmental sensors (the typical SDI-12
    * users) 0 is a common result value.  To better distinguish between a timeout because
    * of no sensor response and a true zero return, the timeout should be set to some
    * value that is NOT a possible return from that sensor.  If the timeout is not set,
@@ -611,7 +706,7 @@ class SDI12 : public Stream {
   /**
    * @brief Get the data pin for the current SDI-12 instance
    *
-   * @return @m_span{m-type} int8_t @m_endspan the data pin number
+   * @return The data pin number
    */
   int8_t getDataPin();
   /**
@@ -620,6 +715,9 @@ class SDI12 : public Stream {
    * @param dataPin  The data pin's digital pin number
    */
   void setDataPin(int8_t dataPin);
+#ifdef SDI12_CHECK_PARITY
+  bool _parityFailure;
+#endif
   /**@}*/
 
 
@@ -658,7 +756,7 @@ class SDI12 : public Stream {
   /**
    * @brief Set this instance as the active SDI-12 instance
    *
-   * @return @m_span{m-type} bool @m_endspan True indicates that the current SDI-12
+   * @return True indicates that the current SDI-12
    * instance was not formerly the active one and now is.  False indicates that the
    * current SDI-12 instance *is already the active one* and the state was not changed.
    *
@@ -674,8 +772,8 @@ class SDI12 : public Stream {
   /**
    * @brief Check if this instance is active
    *
-   * @return @m_span{m-type} bool @m_endspan True indicates that the curren SDI-12
-   * instace is the active one.
+   * @return True indicates that the curren SDI-12
+   * instance is the active one.
    *
    * isActive() is a method for checking if the object is the active object.  Returns
    * true if the object is currently the active object, false otherwise.
@@ -762,7 +860,7 @@ class SDI12 : public Stream {
    * @brief Calculate the parity value for a character using even parity.
    *
    * @param v **uint8_t (char)** the character to calculate the parity of
-   * @return @m_span{m-type} uint8_t @m_endspan the input character with the 8th bit set
+   * @return The input character with the 8th bit set
    * to the even parity value for that character
    *
    * Sets up parity and interrupts for different processor types - that is, imports the
@@ -779,7 +877,7 @@ class SDI12 : public Stream {
    *
    * @param enable True to enable pin interrupts
    *
-   * A private helper function to turn pin interupts on or off
+   * A private helper function to turn pin interrupts on or off
    */
   void setPinInterrupts(bool enable);
   /**
@@ -817,7 +915,7 @@ class SDI12 : public Stream {
    * @name Waking Up and Talking To Sensors
    *
    * @brief These functions are needed to communicate with SDI-12 sensors (slaves) or an
-   * SDI-12 datalogger (master).
+   * SDI-12 data logger (master).
    */
   /**@{*/
  private:
@@ -882,17 +980,17 @@ class SDI12 : public Stream {
    * @brief Write out a byte on the SDI-12 line
    *
    * @param byte The character to write
-   * @return @m_span{m-type} size_t @m_endspan The number of characters written
+   * @return The number of characters written
    *
    * Sets the state to transmitting, writes a character, and then sets the state back to
    * listening.  This function must be implemented as part of the Arduino Stream
-   * instance, but is *NOT* intenteded to be used for SDI-12 objects.  Instead, use the
+   * instance, but is *NOT* intended to be used for SDI-12 objects.  Instead, use the
    * SDI12::sendCommand() or SDI12::sendResponse() functions.
    */
   virtual size_t write(uint8_t byte);
 
   /**
-   * @brief Send a command out on the data line, acting as a datalogger (master)
+   * @brief Send a command out on the data line, acting as a data logger (master)
    *
    * @param cmd the command to send
    *
@@ -911,21 +1009,59 @@ class SDI12 : public Stream {
   void sendCommand(FlashString cmd, int8_t extraWakeTime = SDI12_WAKE_DELAY);
 
   /**
+   * @brief Calculates the 16-bit Cyclic Redundancy Check (CRC) for an SDI-12 message.
+   *
+   * @param resp The message to calculate the CRC for.
+   * @return *uint16_t* The calculated CRC
+   */
+  uint16_t calculateCRC(String& resp);
+  /// @copydoc SDI12::calculateCRC(String&)
+  uint16_t calculateCRC(const char* resp);
+  /// @copydoc SDI12::calculateCRC(String&)
+  uint16_t calculateCRC(FlashString resp);
+
+  /**
+   * @brief Converts a numeric 16-bit CRC to an ASCII String.
+   *
+   * From the SDI-12 Specifications:
+   *
+   *     The 16 bit CRC is encoded as three ASCII characters
+   *     using the following algorithm:
+   *         1st character = 0x40 OR (CRC shifted right 12 bits)
+   *         2nd character = 0x40 OR ((CRC shifted right 6 bits) AND 0x3F)
+   *         3rd character = 0x40 OR (CRC AND 0x3F)
+   *
+   * @param crc The 16-bit CRC
+   * @return *String* An ASCII string for the CRC
+   */
+  String crcToString(uint16_t crc);
+
+  /**
+   * @brief Verifies that the CRC returned at the end of an SDI-12 message matches that
+   * of the content of the message.
+   *
+   * @param respWithCRC The full SDI-12 message, including the CRC at the end.
+   * @return True if the CRC matches and the message is valid, false if the CRC doesn't
+   * match and the message could be retried.
+   */
+  bool verifyCRC(String& respWithCRC);
+
+  /**
    * @brief Send a response out on the data line (for slave use)
    *
    * @param resp the response to send
+   * @param addCRC True to append a CRC to the outgoing response
    *
    * A publicly accessible function that sends out an 8.33 ms marking and a response
    * byte by byte on the data line.  This is needed if the Arduino is acting as an
    * SDI-12 device itself, not as a recorder for another SDI-12 device.
    */
-  void sendResponse(String& resp);
-  /// @copydoc SDI12::sendResponse(String& resp)
-  void sendResponse(const char* resp);
-  /// @copydoc SDI12::sendResponse(String& resp)
-  void sendResponse(FlashString resp);
+  void sendResponse(String& resp, bool addCRC = false);
+  /// @copydoc SDI12::sendResponse(String& resp, bool addCRC)
+  void sendResponse(const char* resp, bool addCRC = false);
+  /// @copydoc SDI12::sendResponse(String& resp, bool addCRC)
+  void sendResponse(FlashString resp, bool addCRC = false);
   ///@}
-
 
   /**
    * @anchor interrupt_fxns
@@ -977,8 +1113,5 @@ class SDI12 : public Stream {
   // #define SDI12_EXTERNAL_PCINT
   /**@}*/
 };
-
-
-extern uint8_t  charRecieved;
 
 #endif  // SRC_SDI12_H_

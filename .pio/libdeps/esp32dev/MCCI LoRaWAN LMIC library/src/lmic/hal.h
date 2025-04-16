@@ -49,7 +49,7 @@ typedef void LMIC_ABI_STD hal_failure_handler_t(const char* const file, const ui
  * This API is deprecated as it uses the const global lmic_pins,
  * which the platform can't control or change.
  */
-void hal_init_test (void);
+void hal_init (void);
 
 /*
  * Initialize hardware, passing in platform-specific context

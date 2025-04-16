@@ -479,14 +479,19 @@ listDir(SD, "/", 0);
 Serial.println("Reading loRa keys from file");
   if (!readParametersFromFile(paramFile)) {
     Serial.println("Failed to read parameters from file.");
-    while (1);
+    pinMode(DEBUG_LED_PIN,OUTPUT);
+    while (1){
+      digitalWrite(DEBUG_LED_PIN, HIGH);
+      delay(3000);
+      digitalWrite(DEBUG_LED_PIN, LOW);
+    }
   }
 
 
  
   if (!SD.exists(fileName))
   {
-    writeFile(SD, fileName, "Dendrometer,Air Temperature, Air Humidity,Soil temperature,Soil Water Volume cm^3/cm^3,Battery,SF T1 Before,SF T2 Before,SF T1 During,SF T2 During,SF T1 After,SF T2 After,HPV,Boot count\n");
+    writeFile(SD, fileName, "Dendrometer,Air Temperature, Air Humidity,Soil temperature,SM orPyro,Battery,SF T1 Before,SF T2 Before,SF T1 During,SF T2 During,SF T1 After,SF T2 After,HPV,Boot count\n");
   }
 
   Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));

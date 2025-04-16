@@ -50,6 +50,31 @@ Serial.println("DHT22 Done:");
 
 tempMedian = trimmedMean(arrTemp, DHT_SAMPLE_SIZE, DHT_TRIM_COUNT);
 humMedian = trimmedMean(arrHum, DHT_SAMPLE_SIZE, DHT_TRIM_COUNT);
+
+if (isnan(tempMedian) || isnan(humMedian)){
+  Serial.println("DHT22 Error: NaN");
+  tempMedian = 9999.99;
+  humMedian = 9999.99;
+  DHT22_DONE = 1;
+  return;
+}
+else if (tempMedian < -40 || tempMedian > 80 || humMedian < 0 || humMedian > 100)
+{
+  Serial.println("DHT22 Error: Out of Range");
+  tempMedian = 1111.11;
+  humMedian = 1111.11;
+  DHT22_DONE = 1;
+  return;
+}
+else
+{
+  Serial.println("DHT22 Measurement Successful");
+  Serial.print(F("Temperature: "));
+  Serial.print(tempMedian);
+  Serial.print(F(" C   Humidity: "));
+  Serial.print(humMedian);
+  Serial.println(F("%"));
+}
   Serial.print(F("Humidity: "));
   Serial.print(humMedian);
   Serial.print(F("%  Temperature: "));
@@ -61,18 +86,3 @@ humMedian = trimmedMean(arrHum, DHT_SAMPLE_SIZE, DHT_TRIM_COUNT);
 }
 
 }
-
-
-
-// for (uint8_t i = 0; i < DHT_SAMPLE_SIZE; i++)
-// {
-//   arrTemp[i] = dht.readTemperature();
-//    arrHum[i] = dht.readHumidity();
-   
-//    Serial.println(arrTemp[i]);
-//      Serial.println(arrHum[i]);
-
-//    delay(750);
-// }
-
-

@@ -42,7 +42,7 @@
 
 
 //Dendrometer pins
-#define DENDROMETER_PIN 8
+//#define DENDROMETER_PIN 8
 //#define DENDROMETER_ENABLE_PIN GPIO_NUM_2//4
 
 

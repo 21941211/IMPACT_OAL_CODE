@@ -413,12 +413,12 @@ void hal_printf_init() {
 #endif // !defined(ESP8266) || defined(ESP31B) || defined(ESP32)
 #endif // defined(LMIC_PRINTF_TO)
 
-void hal_init_test (void) {
+void hal_init (void) {
     // use the global constant
     Arduino_LMIC::hal_init_with_pinmap(&lmic_pins);
 }
 
-// hal_init_test_ex is a C API routine, written in C++, and it's called
+// hal_init_ex is a C API routine, written in C++, and it's called
 // with a pointer to an lmic_pinmap.
 void hal_init_ex (const void *pContext) {
     const lmic_pinmap * const pHalPinmap = (const lmic_pinmap *) pContext;

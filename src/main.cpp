@@ -142,7 +142,7 @@ void setup()
   }
 #endif
 
-  //digitalWrite(DEBUG_LED_PIN, HIGH);
+  digitalWrite(DEBUG_LED_PIN, HIGH);
 
   //digitalWrite(GPIO_NUM_2, HIGH); // turn the DENDRO on (HIGH is the voltage level)
   //delay(3000);
